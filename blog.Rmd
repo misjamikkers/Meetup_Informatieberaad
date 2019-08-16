@@ -1,0 +1,444 @@
+---
+title: "Meetup blog"
+author: "Misja Mikkers & Gertjan Verhoeven"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+
+```
+
+
+```{r}
+# Packages
+
+library(tidyverse)
+library(dagitty)
+library(caret)
+library(ranger)
+library(stargazer)
+library(knitr)
+
+```
+
+
+# Inleiding
+
+
+Het doel van dit blog is om een toegangelijke inleiding te geven over causaliteit. Dit blog is geschreven naar aanleiding van een uitnodiging door XX om een workshop te organiseren voor YY.
+
+Het voorspellen van fenomenen met behulp machine learning is de afgelopen jaren een groot succes gebleken. Grote hoeveelheden data en toegenomen computerkracht hebben geleid tot veel ontwikkelingen en toepassingen op het gebied van voorspellen. Voorbeelden zijn het real time voorspellen van credit card fraude, het systeem van aanbevelingen bij bedrijven als Spotify, Bol, Netflix etc. Deze modellen hebben gemeen dat ze zich richten op het voorspellen van fenomenen, maar niet gericht zijn op causaliteit. Als de wereld verandert, dan vermindert de voorspellende waarde van het model en wordt het model opnieuw "getraind".
+
+In dit blog willen het hebben op het combineren van de voorspelkracht van allerlei modellen met de notie van causaliteit.
+
+Causaliteit is counter factual
+
+Dus waarde Y bij I=0 minus bij I=1
+
+Maar we observeren altijd maar 1 van deze waarden:
+
+```{r}
+X_1 <- c("Man", "Vrouw", "Vrouw", "...")
+
+PO <- as.data.frame(X_1) %>%
+  mutate(X_2 =  c("9", "60", "7", "...")) %>%
+  mutate(`...` = c("14", "36", "2", "...")) %>%
+  mutate(X_i =  c("1", "0", "1", "...")) %>%
+  mutate(I = c("0", "1", "1", "...")) %>%
+  mutate(Y0 = c("67", "NA", "NA", "...")) %>%
+  mutate(Y1 = c("NA", "113", "54", "..."))
+
+
+
+kable(PO)
+
+```
+
+
+Met machinelearning kunnen we de ontbrekende waarden goed voorspellen. Daarmee zouden machine learning kunnen gebruiken voor causal inference [Vertalen]. Om het netjes te doen zouden we overigens de alle waarden voor $Y$ bij $I = 0$ en $I = 1$ moeten voorspellen.
+
+In dit blog willen we laten zien, dat je dat niet zo maar kunt doen. Om echt causale conclusies te kunnen trekken, moet je goed nadenken over welke variabelen je wel en niet kunt gebruiken om $Y$ te kunnen voorspellen.
+
+# Voorspellen versus begrijpen
+
+
+Bij het voorspellen van fenomenen gaat het om het vinden van patronen ("correlaties") in de data. 
+
+Het beschrijven en voorspellen van fenomen kan op grond van de data alleen. Echter, om fenomenen te kunnen **verklaren** (begrijpen) is een causaal model nodig. In een causaal model wordt de kennis over oorzaken en gevolgen expliciet vastgelegd. Met een causaal model kunnen vragen beantwoord worden als:
+
+* Wat zijn de oorzaken van een bepaald fenomeen?
+* Welke gevolgen heeft ingrijpen op een oorzaak op het bestudeerde fenomeen?
+
+
+Als we begrijpen wat een voorspelling drijft, dan kunnen we we iets doen om het verschijnsel waarin we zijn geinteresseerd te veranderen. Dat iets doen noemen we in dit blog een "interventie". Voorbeelden van interventies zijn:
+
+- beleid formuleren
+- een medische ingreep doen
+- meer informatie verschaffen
+- etc
+
+Om het probleem van het voorspellen op basis van correlaties te illustreren, hebben we een fictieve dataset gemaakt met gegevens CITO-scores van hun kinderen en het aantal boeken dat hun ouders bezit.
+
+Uit figuur 1 blijkt dat er een correlatie is tussen het aantal boeken dat ouders bezit en de CITO-scores van hun kinderen.
+
+
+```{r}
+set.seed(123)
+
+N <- 100
+
+IQouders <- rnorm(n = N, mean = 100, sd = 10)
+
+conf <- as.data.frame(IQouders) %>%
+  mutate(Aantal_boeken = IQouders/5 + rnorm(n= N,  mean = 0), sd = 1) %>%
+  mutate(C = 5 * IQouders + rnorm(n = N, mean = 0, sd = 2)) %>% # ruwe scores voor Cito
+  mutate(Cito = (C - min(C))/max((C - min(C)))*50 + 500) %>% # verander ruwe scores in scores in de relevante range
+  mutate(IQ_groep = as.factor(ntile(IQouders, 10))) %>%
+  select(-C)
+
+ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  xlab("Aantal boeken dat ouders bezitten") +
+  ylab("Cito scores van hun kinderen") +
+  theme_minimal()
+
+
+
+```
+
+
+Als deze correlatie een een causaal effect zou zijn, dan zou het helpen om boeken aan ouders van schoolgaande kinderen te geven. In dit geval is het aannemelijker dat er een andere variabele is, die zowel leidt tot meer boeken als tot hogere CITO-scores bij kinderen: het IQ van de ouders.
+
+Zodra we rekening houden met ("controleren voor") het IQ van de ouders, dan verdwijnt het effect. Dat betekent dat wanneer we informatie hebben over de CITO-scores van kinderen en het IQ van hun ouders, de data over het aantal boeken geen waarde toegevoegt aan onze analyse. In onderstaande plot hebben we het IQ van de ouders in 10 even grote groepen ingedeeld en dan zien wat binnen die groepen het aantal boeken de CITO-scores niet meer verklaren. 
+
+
+
+```{r}
+
+
+ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal()
+
+```
+
+
+
+In het kader van dit blog definieren we causaliteit als het verschijnsel dat als we een variabele veranderen, dat dan een andere variabele ook verandert. In het bovenstaande voorbeeld is het aantal boeken geen oorzaak van de CITO-scores. Als we het aantal boeken veranderen, dan verandert de CITO score niet. Het IQ van de ouders is wel een oorzaak van hogere CITO-scores. In dit voorbeeld kunnen wij ons overigens niet voorstellen dat we het IQ van de ouders veranderen. We kunnen wel een counter factual beredeneren: wanneer het IQ van de ouders anders geweest zou zijn, dan zou ook de CITO score anders zijn.
+
+We kunnen het hierboven gegeven voorbeeld weergeven in een causaal model:
+
+```{r}
+citodag <- dagitty('dag {
+IQ_ouders [pos = "1,0"]
+Aantal_boeken [pos = "0,1"]
+Cito_score [pos = "2,1"]
+
+Aantal_boeken <- IQ_ouders -> Cito_score
+
+}')
+
+
+
+plot(citodag)
+```
+
+
+Nu uitleg over DAGs
+
+```{r}
+NBAdag <- dagitty('dag {
+NBA [pos = "1,0"]
+Snelheid [pos = "0,1"]
+Lengte [pos = "2,1"]
+
+Lengte -> NBA <- Snelheid
+
+}')
+
+
+
+plot(NBAdag)
+```
+
+In deze DAG beschrijft een model waarbij snelle en lange mensen in de NBA (De Amerikaans professionele basketbalcompetitie) spelen. Om in basketbalprofessional te kunnen worden moet je lang en snel zijn. NBA-spelers die niet lang zijn, moeten extreem snel zijn en spelers die niet snel zijn moeten extreem lang zijn. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Moeten we dan alle mogelijke variabelen includeren in de analyse?
+
+- Nu big data/computer power/machine learning dus alles opgelost?
+- Nee: bv unobserved confounders (voorbeeld) met plaatje
+
+# Colliders:
+
+We bekijken nu het volgende causale model met een collider:
+
+
+
+
+
+```{r}
+
+set.seed(1)
+Lengte <- rnorm(n = 1000, mean = 1.8, sd = 0.15)
+
+NBA <- as.data.frame(Lengte) %>%
+  mutate(Snelheid = rnorm(n = 1000, mean = 14, sd = 2)) %>%
+  mutate(NBA = as.factor(ifelse(Snelheid < 11 | Lengte > 2.1 | Snelheid < 12 & Lengte > 1.9,  1 , 0)))
+
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+  geom_point() +
+  geom_smooth(method = "lm", aes(group = 1)) +
+  scale_color_manual(values = c("#17408B", "#C9082A")) +
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("#17408B", "#C9082A")) +
+  theme_minimal()
+```
+
+Ook als je een regressies zou doen, dan blijkt dat 
+
+- geen verband is tussen lengte en snelheid
+- maar er wel een verband ontstaat zodra je toevoegt dat mensen in de NBA spelen.
+
+```{r, results = 'asis'}
+
+regNBA <- lm(Snelheid ~ Lengte, data = NBA)
+regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
+
+stargazer(regNBA, regNBA1, header = FALSE, type = "html")
+```
+
+
+
+
+# Hoe bepalen we nu welke variabelen we moeten selecteren voor de analyse
+
+
+- Uitleg dag
+
+- Testable implacations
+- geen functionele vormen
+- markov blanket
+
+
+# Voorbeelden
+
+- collider voorbeeld
+- DAG van Mijntje/EPI?
+
+
+
+
+# Voorbeeld
+
+
+In dit voorbeeld gaan we uit van de volgende DAG.
+
+We hebben een aantal variabelen $V_i, 1 \leq i \leq 8$ (Zoals bijvoorbeeld leeftijd, chronische ziekten etc.) die een invloed hebben op de ziektelast die mensen ondervinden. 
+Deze Ziekte heeft weer een invloed op de zorgkosten die mensen maken.
+
+Tenslotte is er een interventie $T$. Deze interventie is heel duur (en heeft daarom een invloed op de zorgkosten). Deze interventie heeft geen invloed op de ziektelast.
+
+```{r}
+
+
+g <- dagitty('dag {
+    Zorgkosten [pos="1,0"]
+    Treatment [pos="0,1"]
+    Gezondheid [pos="2,1"]
+    V_i [pos="3,1"]
+   
+    
+V_i -> Gezondheid -> Zorgkosten <- Treatment    
+
+    
+
+}')
+plot(g)
+
+```
+
+
+We kunnen een causaal effect per persoon schatten. Dat kunnen we doen met behulp van het volgende stappenplan:
+
+1. Fit een Random Forest model op de data
+2. Voorspel met het model alle uitkomsten als 
+    - Treatment = 0
+    - Treatment = 1
+3. Bereken het treatment effect als het verschil tussen de Ziektelast wanneer de Treatment 1 is en de Ziektelast wanneer de Treatment 0 is.
+
+
+
+# Summary statistics
+
+```{r, results = 'asis'}
+
+set.seed(123)
+
+X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, ncol = 8)
+
+
+d1 <- as.data.frame(X) %>%
+mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
+mutate(Gezondheid = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+mutate(Zorgkosten = 3 * Treatment + 5 * Gezondheid  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+select(Gezondheid, Treatment, Zorgkosten, everything())
+
+stargazer(d1, type= "html",  header = FALSE)
+
+```
+
+
+
+
+
+# Voorspellingen Random Forest
+
+
+```{r}
+
+set.seed(123)
+tr_control <- trainControl(method = "repeatedcv",
+                            number = 10,
+                            repeats = 5)
+ 
+ 
+ rf_fit_all <- train(Gezondheid ~ . ,
+                 data= d1,
+                 method = "ranger",
+                 importance= "permutation",
+                 trControl = tr_control)
+ 
+ rf_fit <- train(Gezondheid ~ .-Zorgkosten ,
+                 data= d1,
+                 method = "ranger",
+                 importance= "permutation",
+                 trControl = tr_control)
+ 
+
+dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
+  rename(`Model met zorgkosten`= `rf_fit_all$resample$Rsquared`) %>%
+  mutate(`Model zonder zorgkosten` = rf_fit$resample$Rsquared) %>%
+  gather(Model, Rsquared)
+
+ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) + 
+  geom_boxplot(width = 0.1) +
+  ylab("R kwardraat") + 
+  xlab(" ") +
+  ylim(0.5,1) +
+  theme_minimal() + 
+  coord_flip()
+
+```
+
+# Schatting van het treatment effect
+
+```{r}
+
+set.seed(123)
+
+# Maak testdata aan
+
+d1a <- d1 %>%
+  select(-Treatment) %>%
+  mutate(Treatment = 0) %>%
+  select(Gezondheid, Treatment, Zorgkosten, everything()) 
+
+
+d1b <- d1 %>%
+  select(-Treatment) %>%
+  mutate(Treatment = 1) %>%
+  select(Gezondheid, Treatment, Zorgkosten, everything())
+
+
+# Voorspel waarden met model alle variabeblen
+
+T0<- predict(rf_fit_all, newdata= d1a)
+T1 <- predict(rf_fit_all, newdata= d1b)
+
+
+T0a <- predict(rf_fit, newdata = d1a)
+T1a <- predict(rf_fit, newdata = d1b)
+
+
+# Maak data frames
+
+d2 <- as.data.frame(T0) %>%
+  mutate(T1 = T1) %>%
+  mutate(TE = T1 - T0)
+
+d2a <- d2 %>%
+  summarise(ATE = mean(TE), Sd = sd(TE)) %>%
+  mutate(Upper = ATE + 1.96 * Sd) %>%
+  mutate(Lower = ATE - 1.96 * Sd) %>%
+  mutate(Model = as.factor("Model met zorgkosten"))
+
+
+d3 <- as.data.frame(T0a) %>%
+  mutate(T1a = T1a) %>%
+  mutate(TEa = T1a - T0a)
+
+d3a <- d3 %>%
+  summarise(ATE = mean(TEa), Sd = sd(TEa)) %>%
+  mutate(Upper = ATE + 1.96 * Sd) %>%
+  mutate(Lower = ATE - 1.96 * Sd) %>%
+  mutate(Model = as.factor("Model zonder zorgkosten"))
+
+
+d4 <- rbind(d2a, d3a)
+
+ggplot(data = d4, aes(x = Model, y = ATE)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
+  xlab("") +
+  ylim(-1,1) +
+  theme_minimal() +
+  coord_flip()
+
+
+```
+
+
+#Literatuur
+
+- even checken hoe we dat goed krijgen
+- Book of why
+- Elwert
+- Causality primer van pearl
+- voorbeeld boeken komt is ontleend aan Freakanomics
+

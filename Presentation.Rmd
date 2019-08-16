@@ -1,0 +1,299 @@
+---
+title: "Een onnodig gecompliceerde titel"
+author: "Misja Mikkers & Gertjan Verhoeven"
+institute: "Nederlandse Zorgautoriteit (NZa) & Tilburg University"
+date: "31 oktober 2018"
+output:
+   beamer_presentation:
+    theme: "Goettingen"
+    colortheme: "rose"
+    fonttheme: "structurebold"
+    includes:
+          in_header: header.tex
+---
+
+```{r setup II, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+
+```{r}
+# Packages
+
+library(tidyverse)
+library(dagitty)
+library(caret)
+library(ranger)
+library(stargazer)
+
+```
+
+
+# Is voorspellen de belangrijkste tool
+
+
+
+
+
+# Causaliteit?
+
+
+
+
+```{r}
+set.seed(123)
+
+N <- 100
+
+IQouders <- rnorm(n = N, mean = 100, sd = 10)
+
+conf <- as.data.frame(IQouders) %>%
+  mutate(Aantal_boeken = IQouders/5 + rnorm(n= N,  mean = 0), sd = 1) %>%
+  mutate(C = 5 * IQouders + rnorm(n = N, mean = 0, sd = 2)) %>% # ruwe scores voor Cito
+  mutate(Cito = (C - min(C))/max((C - min(C)))*50 + 500) %>% # verander ruwe scores in scores in de relevante range
+  mutate(IQ_groep = as.factor(ntile(IQouders, 10))) %>%
+  select(-C)
+
+ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal()
+
+
+
+```
+
+
+
+
+# Causaliteit?
+
+```{r}
+
+
+ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Confounders
+
+- data ananimatie over ipads <- Opleiding ouders -> cito score
+
+- Dit gaat over het toevogen van variabelen in je analyse
+
+# Moeten we dan alle mogelijke variabelen includeren in de analyse?
+
+- Nu big data/computer power/machine learning dus alles opgelost?
+- Nee: bv unobserved confounders (voorbeeld) met plaatje
+
+# Andere reden:
+
+- voorbeeld vliegtuigen (collider)
+
+# Hoe bepalen we nu welke variabelen we moeten selecteren voor de analyse
+
+
+- Uitleg dag
+
+- Testable implacations
+- geen functionele vormen
+- markov blanket
+
+
+# Voorbeelden
+
+- collider voorbeeld
+- DAG van Mijntje/EPI?
+
+
+
+
+# Voorbeeld
+
+
+
+
+```{r}
+
+
+g <- dagitty('dag {
+    Zorgkosten [pos="1,0"]
+    Treatment [pos="0,1"]
+    Ziektelast [pos="2,1"]
+    V_i [pos="3,1"]
+   
+    
+V_i -> Ziektelast -> Zorgkosten <- Treatment    
+
+    
+
+}')
+plot(g)
+
+```
+
+
+
+# Summary statistics
+
+```{r, results = 'asis'}
+
+set.seed(123)
+
+X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, ncol = 8)
+
+
+d1 <- as.data.frame(X) %>%
+mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
+mutate(Gezondheid = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+mutate(Zorgkosten = 3 * Treatment + 5 * Gezondheid  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+select(Gezondheid, Treatment, Zorgkosten, everything())
+
+stargazer(d1, type= "html",  header = FALSE)
+
+```
+
+# Stappenplan
+
+Het Treatment effect per persoon is het 
+
+1. Fit een Random Forest op de data
+2. Voorspel met het model alle uitkomsten als 
+    - Treatment = 0
+    - Treatment = 1
+3. Bereken het treatment effect
+
+
+# Voorspellingen Random Forest
+
+
+```{r}
+
+set.seed(123)
+tr_control <- trainControl(method = "repeatedcv",
+                            number = 10,
+                            repeats = 5)
+ 
+ 
+ rf_fit_all <- train(Gezondheid ~ . ,
+                 data= d1,
+                 method = "ranger",
+                 importance= "permutation",
+                 trControl = tr_control)
+ 
+ rf_fit <- train(Gezondheid ~ .-Zorgkosten ,
+                 data= d1,
+                 method = "ranger",
+                 importance= "permutation",
+                 trControl = tr_control)
+ 
+
+dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
+  rename(`Model met zorgkosten`= `rf_fit_all$resample$Rsquared`) %>%
+  mutate(`Model zonder zorgkosten` = rf_fit$resample$Rsquared) %>%
+  gather(Model, Rsquared)
+
+ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) + 
+  geom_boxplot(width = 0.1) +
+  ylab("R kwardraat") + 
+  xlab(" ") +
+  ylim(0.5,1) +
+  theme_minimal() + 
+  coord_flip()
+
+```
+
+# Schatting van het treatment effect
+
+```{r}
+
+set.seed(123)
+
+# Maak testdata aan
+
+d1a <- d1 %>%
+  select(-Treatment) %>%
+  mutate(Treatment = 0) %>%
+  select(Gezondheid, Treatment, Zorgkosten, everything()) 
+
+
+d1b <- d1 %>%
+  select(-Treatment) %>%
+  mutate(Treatment = 1) %>%
+  select(Gezondheid, Treatment, Zorgkosten, everything())
+
+
+# Voorspel waarden met model alle variabeblen
+
+T0<- predict(rf_fit_all, newdata= d1a)
+T1 <- predict(rf_fit_all, newdata= d1b)
+
+
+T0a <- predict(rf_fit, newdata = d1a)
+T1a <- predict(rf_fit, newdata = d1b)
+
+
+# Maak data frames
+
+d2 <- as.data.frame(T0) %>%
+  mutate(T1 = T1) %>%
+  mutate(TE = T1 - T0)
+
+d2a <- d2 %>%
+  summarise(ATE = mean(TE), Sd = sd(TE)) %>%
+  mutate(Upper = ATE + 1.96 * Sd) %>%
+  mutate(Lower = ATE - 1.96 * Sd) %>%
+  mutate(Model = as.factor("Model met zorgkosten"))
+
+
+d3 <- as.data.frame(T0a) %>%
+  mutate(T1a = T1a) %>%
+  mutate(TEa = T1a - T0a)
+
+d3a <- d3 %>%
+  summarise(ATE = mean(TEa), Sd = sd(TEa)) %>%
+  mutate(Upper = ATE + 1.96 * Sd) %>%
+  mutate(Lower = ATE - 1.96 * Sd) %>%
+  mutate(Model = as.factor("Model zonder zorgkosten"))
+
+
+d4 <- rbind(d2a, d3a)
+
+ggplot(data = d4, aes(x = Model, y = ATE)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
+  xlab("") +
+  ylim(-1,1) +
+  theme_minimal() +
+  coord_flip()
+
+
+```
+
+
+
