@@ -27,6 +27,7 @@ library(caret)
 library(ranger)
 library(stargazer)
 library(knitr)
+library(ggrepel)
 
 ```
 
@@ -137,6 +138,53 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 In het kader van dit blog definieren we causaliteit als het verschijnsel dat als we een variabele veranderen, dat dan een andere variabele ook verandert. In het bovenstaande voorbeeld is het aantal boeken geen oorzaak van de CITO-scores. Als we het aantal boeken veranderen, dan verandert de CITO score niet. Het IQ van de ouders is wel een oorzaak van hogere CITO-scores. In dit voorbeeld kunnen wij ons overigens niet voorstellen dat we het IQ van de ouders veranderen. We kunnen wel een counter factual beredeneren: wanneer het IQ van de ouders anders geweest zou zijn, dan zou ook de CITO score anders zijn.
 
+
+# DAGS
+
+## Introductie
+
+Uitleg over DAGS
+
+3 basisvormen
+
+```{r}
+
+Label <- c("X", "Z", "Y", "X", "Z", "Y", "X", "Z", "Y") # Ik gebruik dit niet: geom_text en ggeom_text_repel plaatsen labels niet mooi
+
+DAG <- as.data.frame(Label) %>%
+  mutate(X = c(1, 2, 3, 5, 6, 7, 9, 10, 11)) %>%
+  mutate(Y = c(1, 3, 1, 1, 3, 1, 1, 3, 1))
+
+ggplot(data = DAG, aes(x = X, y = Y)) +
+  geom_point(size = 3, color = "black") +
+  geom_segment(x = 2, xend = 1, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 2, xend = 3, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 5, xend = 5.9, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 7, xend = 6.1, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 9, xend = 9.9, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 10.1, xend = 11, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  annotate("text", x = 1, y = 0.8, label = "X") +
+  annotate("text", x = 2, y = 3.2, label = "Z") +
+  annotate("text", x = 3, y = 0.8, label = "Y") +
+  annotate("text", x = 5, y = 0.8, label = "X") +
+  annotate("text", x = 6, y = 3.2, label = "Z") +
+  annotate("text", x = 7, y = 0.8, label = "Y") +
+  annotate("text", x = 9, y = 0.8, label = "X") +
+  annotate("text", x = 10, y = 3.2, label = "Z") +
+  annotate("text", x = 11, y = 0.8, label = "Y") +
+  annotate("text", x = 2, y = 3.5, label = "Confounder") +
+  annotate("text", x = 6, y = 3.5, label = "Collider") +
+  annotate("text", x = 10, y = 3.5, label = "Mediator") +
+  ylim(0, 5) +
+    theme_void()
+
+```
+
+
+
+
+## Confounder
+
 We kunnen het hierboven gegeven voorbeeld weergeven in een causaal model:
 
 ```{r}
@@ -154,8 +202,8 @@ Aantal_boeken <- IQ_ouders -> Cito_score
 plot(citodag)
 ```
 
+## Collider
 
-Nu uitleg over DAGs
 
 ```{r}
 NBAdag <- dagitty('dag {
@@ -192,12 +240,9 @@ In deze DAG beschrijft een model waarbij snelle en lange mensen in de NBA (De Am
 
 
 
-# Moeten we dan alle mogelijke variabelen includeren in de analyse?
 
-- Nu big data/computer power/machine learning dus alles opgelost?
-- Nee: bv unobserved confounders (voorbeeld) met plaatje
 
-# Colliders:
+
 
 We bekijken nu het volgende causale model met een collider:
 
@@ -235,6 +280,8 @@ Ook als je een regressies zou doen, dan blijkt dat
 - geen verband is tussen lengte en snelheid
 - maar er wel een verband ontstaat zodra je toevoegt dat mensen in de NBA spelen.
 
+Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen.
+
 ```{r, results = 'asis'}
 
 regNBA <- lm(Snelheid ~ Lengte, data = NBA)
@@ -243,13 +290,70 @@ regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
 stargazer(regNBA, regNBA1, header = FALSE, type = "html")
 ```
 
+## Mediator
 
+```{r}
+Voetbaldag <- dagitty('dag {
+Teamsterkte [pos = "1,0"]
+Budget [pos = "0,1"]
+Punten [pos = "2,1"]
+
+Budget -> Teamsterkte -> Punten
+
+}')
+
+
+
+plot(Voetbaldag)
+
+```
+
+
+Op basis van deze DAG kunnen we data genereren en deze data in een grafiek weergeven.
+
+```{r}
+set.seed(123)
+Budgetten <- rnorm(n = 100, mean = 30, sd = 12)
+
+Vb <- as.data.frame(Budgetten) %>%
+  mutate(Teamsterkte = (3 * Budgetten)/(3*mean(Budgetten)) * 100 + rnorm(n = 100, mean = 0, sd = 10)) %>%
+  mutate(Hulppunten = 2 * Teamsterkte + rnorm(n= 100, mean = 0, sd = 15)) %>%
+  mutate(Punten = round((Hulppunten - min(Hulppunten))/max((Hulppunten - min(Hulppunten)))*63 + 23, 0 )) %>% # punten in de relevante range
+  select(- Hulppunten) %>%
+  mutate(Teamsterkte_groep = as.factor(ntile(Teamsterkte, 10)))
+  
+
+
+
+ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
+  geom_point() + 
+  geom_smooth(method = "lm", aes(group = 1)) +
+  theme_minimal()
+
+```
+
+
+```{r}
+ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  theme_minimal()
+```
+
+
+```{r, results = 'asis'}
+regvb <- lm(Punten ~ Budgetten, data = Vb)
+regvb1 <- lm(Punten ~ Budgetten + Teamsterkte, data = Vb)
+
+stargazer(regvb, regvb1, header = FALSE, type = "html")
+
+```
 
 
 # Hoe bepalen we nu welke variabelen we moeten selecteren voor de analyse
 
 
-- Uitleg dag
+
 
 - Testable implacations
 - geen functionele vormen
