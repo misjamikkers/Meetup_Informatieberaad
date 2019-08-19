@@ -109,7 +109,7 @@ conf <- as.data.frame(IQouders) %>%
 ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
   geom_point() +
   geom_smooth(method = "lm") + 
-  xlab("Aantal boeken dat ouders bezitten") +
+  xlab("Aantal boeken dat ouders bezit") +
   ylab("Cito scores van hun kinderen") +
   theme_minimal()
 
@@ -270,7 +270,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
 ```{r}
 ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
   geom_point() +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "lm", aes(group = 1 )) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
   theme_minimal()
 ```
@@ -334,7 +334,7 @@ ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
 
 
 ```{r}
-ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte)) +
+ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
   geom_point() + 
   geom_smooth(method = "lm") +
   theme_minimal()
@@ -362,8 +362,8 @@ stargazer(regvb, regvb1, header = FALSE, type = "html")
 
 # Voorbeelden
 
-- collider voorbeeld
-- DAG van Mijntje/EPI?
+
+- DAG van Mijntje
 
 
 
@@ -384,11 +384,11 @@ Tenslotte is er een interventie $T$. Deze interventie is heel duur (en heeft daa
 g <- dagitty('dag {
     Zorgkosten [pos="1,0"]
     Treatment [pos="0,1"]
-    Gezondheid [pos="2,1"]
+    Ziektelast [pos="2,1"]
     V_i [pos="3,1"]
    
     
-V_i -> Gezondheid -> Zorgkosten <- Treatment    
+V_i -> Ziektelast -> Zorgkosten <- Treatment    
 
     
 
@@ -419,9 +419,9 @@ X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, nco
 
 d1 <- as.data.frame(X) %>%
 mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-mutate(Gezondheid = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-mutate(Zorgkosten = 3 * Treatment + 5 * Gezondheid  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-select(Gezondheid, Treatment, Zorgkosten, everything())
+mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+select(Ziektelast, Treatment, Zorgkosten, everything())
 
 stargazer(d1, type= "html",  header = FALSE)
 
@@ -442,13 +442,13 @@ tr_control <- trainControl(method = "repeatedcv",
                             repeats = 5)
  
  
- rf_fit_all <- train(Gezondheid ~ . ,
+ rf_fit_all <- train(Ziektelast ~ . ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
                  trControl = tr_control)
  
- rf_fit <- train(Gezondheid ~ .-Zorgkosten ,
+ rf_fit <- train(Ziektelast ~ .-Zorgkosten ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
@@ -481,30 +481,22 @@ set.seed(123)
 d1a <- d1 %>%
   select(-Treatment) %>%
   mutate(Treatment = 0) %>%
-  select(Gezondheid, Treatment, Zorgkosten, everything()) 
+  select(Ziektelast, Treatment, Zorgkosten, everything()) 
 
 
 d1b <- d1 %>%
   select(-Treatment) %>%
   mutate(Treatment = 1) %>%
-  select(Gezondheid, Treatment, Zorgkosten, everything())
+  select(Ziektelast, Treatment, Zorgkosten, everything())
 
 
 # Voorspel waarden met model alle variabeblen
 
-T0<- predict(rf_fit_all, newdata= d1a)
-T1 <- predict(rf_fit_all, newdata= d1b)
 
-
-T0a <- predict(rf_fit, newdata = d1a)
-T1a <- predict(rf_fit, newdata = d1b)
-
-
-# Maak data frames
-
-d2 <- as.data.frame(T0) %>%
-  mutate(T1 = T1) %>%
+d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
+  mutate(T1 = predict(rf_fit_all, newdata= d1b)) %>%
   mutate(TE = T1 - T0)
+
 
 d2a <- d2 %>%
   summarise(ATE = mean(TE), Sd = sd(TE)) %>%
@@ -513,8 +505,8 @@ d2a <- d2 %>%
   mutate(Model = as.factor("Model met zorgkosten"))
 
 
-d3 <- as.data.frame(T0a) %>%
-  mutate(T1a = T1a) %>%
+d3 <- data.frame(T0a = predict(rf_fit, newdata = d1a)) %>%
+  mutate(T1a = predict(rf_fit, newdata = d1b)) %>%
   mutate(TEa = T1a - T0a)
 
 d3a <- d3 %>%
@@ -530,6 +522,7 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
+  ylab("Gemiddeld Interventie Effect")
   ylim(-1,1) +
   theme_minimal() +
   coord_flip()
