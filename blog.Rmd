@@ -29,6 +29,7 @@ library(stargazer)
 library(knitr)
 library(ggrepel)
 
+
 ```
 
 
@@ -268,9 +269,24 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
 ```
 
 ```{r}
-ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
+
+regNBA <- lm(Snelheid ~ Lengte, data = NBA)
+regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
+
+summary(regNBA1)
+
+
+
+NBA1 <- NBA %>%
+  mutate(Pred = regNBA1$coefficients[1] + Lengte * regNBA1$coefficients[2]) %>%
+  mutate(Upper = Pred + 1.96 * summary(regNBA1)$coefficients[2,2]) %>%
+   mutate(Lower = Pred - 1.96 * summary(regNBA1)$coefficients[2,2])
+  
+
+ggplot() +
+  geom_point(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+  geom_line(data = NBA1, aes(x = Lengte, y = Pred), color = "blue") +
+  geom_ribbon(data = NBA1, aes(x = Lengte, ymin = Lower, ymax = Upper), alpha = 0.1) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
   theme_minimal()
 ```
@@ -283,9 +299,6 @@ Ook als je een regressies zou doen, dan blijkt dat
 Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen.
 
 ```{r, results = 'asis'}
-
-regNBA <- lm(Snelheid ~ Lengte, data = NBA)
-regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
 
 
 stargazer(regNBA, regNBA1, header = FALSE, type = "html")
