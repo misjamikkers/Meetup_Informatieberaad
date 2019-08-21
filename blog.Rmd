@@ -270,7 +270,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
 ```{r}
 ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
   geom_point() +
-  geom_smooth(method = "lm", aes(group = 1 )) +
+  geom_smooth(method = "lm") +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
   theme_minimal()
 ```
@@ -286,6 +286,7 @@ Dus: je creert een correlatie waar die er niet is door een collider variabele in
 
 regNBA <- lm(Snelheid ~ Lengte, data = NBA)
 regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
+
 
 stargazer(regNBA, regNBA1, header = FALSE, type = "html")
 ```
@@ -360,10 +361,75 @@ stargazer(regvb, regvb1, header = FALSE, type = "html")
 - markov blanket
 
 
-# Voorbeelden
+# Voorbeeld van een meer complexe DAG
+
+In haar afstudeerscriptie voor haar studie economie heeft Mijntje Jansen in 2019 onderzoek gedaan naar de invloed van de samenstelling van het bestuur in de verpleeghuiszorg qua geslacht op de beleefde kwaliteit van zorg. Om deze vraag te kunnen beantwoorden heeft ze de onderstaande DAG gemaakt.
+
+Deze DAG laat zien dat DAG's behoorlijk complex kunnen zijn. Het is bij meer complexe DAG's ingewikkeld om te bepalen welke variabelen nodig zijn om causale verbanden te kunnen indentificeren. De R-package `dagitty` bepaalde de minimum adjustment set geautomatiseerd.
+
+Een tweede reden om deze DAG hier te laten zien is dat dit voorbeeld illustreert dat zelfs complexe modellen zoals hier zijn weergegeven goed kunnen worden besproken met andere -niet noodzakelijkerwijs wiskundig geschoolde- experts. In dit geval heeft Mijntje haar model besproken met en aangepast na gesprekken met bestuurders van verpleeghuisinstellingen.
 
 
-- DAG van Mijntje
+```{r}
+
+
+thesismodel10 <- dagitty('dag {
+  GSB [pos="0,5"]
+  FTE [pos="1,7"]
+  DR [pos="2,7"]
+  GB [pos="1,5"]
+  BB [pos="1,3"]
+  PRB [pos="3,5"]
+  LSB [pos="4,5"]
+  GM [pos="5,3"]
+  PRM [pos="6,3"]
+  LSM [pos="7,3"]
+  FPh [pos="3,1"]
+  FPc [pos="7,1"]
+  SC [pos="7,7"]
+  UR [pos="7,14"]  
+  AF [pos="7,6"]
+  BP [pos="7,15"]
+  BM [pos="5,2"]
+  SS [pos="7,8"]
+  ST [pos="7,9"]
+  AS [pos="7,10"]
+  SM [pos="7,11"]
+  CM [pos="7,13"]
+  PQ [pos="9,5"]
+  
+  GSB-> GB -> PRB -> LSB -> GM -> PRM -> LSM -> PQ
+  BB -> PRB
+  BM -> PRM
+  LSB -> LSM
+  FTE -> GB
+  FPh -> GB
+  FPh -> FPc
+  LSB -> SS
+  LSB -> SM
+  LSB -> ST
+  LSB -> AS
+  LSB -> SC
+  LSB -> AF
+  DR -> GB
+  DR -> PRB
+  LSB -> PQ
+  SS -> PQ
+  SM -> PQ
+  ST -> PQ
+  AS -> PQ
+  SC -> PQ
+  CM -> PQ
+  UR -> PQ
+  AF -> PQ
+  BP -> PQ
+  FPc -> PQ
+  CM -> SM
+}')
+
+plot(thesismodel10)
+```
+
 
 
 
