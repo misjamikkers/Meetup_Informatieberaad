@@ -96,15 +96,19 @@ Uit figuur 1 blijkt dat er een correlatie is tussen het aantal boeken dat ouders
 ```{r}
 set.seed(123)
 
-N <- 100
+N <- 1000
 
-IQouders <- rnorm(n = N, mean = 100, sd = 10)
+IQ_groep <- rep(c(1:10), times = N/10)
 
-conf <- as.data.frame(IQouders) %>%
-  mutate(Aantal_boeken = IQouders/5 + rnorm(n= N,  mean = 0), sd = 1) %>%
-  mutate(C = 5 * IQouders + rnorm(n = N, mean = 0, sd = 2)) %>% # ruwe scores voor Cito
+conf <- as.data.frame(IQ_groep) %>%
+  mutate(IQ = rnorm(n= N, mean = 75 + 5 * IQ_groep, sd = 2)) %>%
+  group_by(IQ_groep) %>%
+  mutate(IQ_mean = mean(IQ)) %>%
+  ungroup() %>%
+  mutate(Aantal_boeken = IQ_mean/3 + rnorm(n= N,  mean = 0), sd = 6) %>%
+  mutate(C = 5 * IQ_mean + rnorm(n = N, mean = 0, sd = 10)) %>% # ruwe scores voor Cito
   mutate(Cito = (C - min(C))/max((C - min(C)))*50 + 500) %>% # verander ruwe scores in scores in de relevante range
-  mutate(IQ_groep = as.factor(ntile(IQouders, 10))) %>%
+  mutate(IQ_groep = as.factor(IQ_groep)) %>%
   select(-C)
 
 ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
@@ -254,40 +258,36 @@ We bekijken nu het volgende causale model met een collider:
 ```{r}
 
 set.seed(1)
-Lengte <- rnorm(n = 1000, mean = 1.8, sd = 0.15)
+Lengte <- rnorm(n = 500, mean = 1.8, sd = 0.15)
 
 NBA <- as.data.frame(Lengte) %>%
-  mutate(Snelheid = rnorm(n = 1000, mean = 14, sd = 2)) %>%
-  mutate(NBA = as.factor(ifelse(Snelheid < 11 | Lengte > 2.1 | Snelheid < 12 & Lengte > 1.9,  1 , 0)))
+  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>%
+  mutate(Lengte_stand = Lengte/max(Lengte)) %>%
+  mutate(Snelheid_stand = Snelheid/max(Snelheid)) %>%
+  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0)))
+  
 
-ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
   geom_point() +
   geom_smooth(method = "lm", aes(group = 1)) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
+  xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
   theme_minimal()
 
 ```
 
 ```{r}
 
-regNBA <- lm(Snelheid ~ Lengte, data = NBA)
-regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
 
-summary(regNBA1)
-
-
-
-NBA1 <- NBA %>%
-  mutate(Pred = regNBA1$coefficients[1] + Lengte * regNBA1$coefficients[2]) %>%
-  mutate(Upper = Pred + 1.96 * summary(regNBA1)$coefficients[2,2]) %>%
-   mutate(Lower = Pred - 1.96 * summary(regNBA1)$coefficients[2,2])
-  
-
-ggplot() +
-  geom_point(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
-  geom_line(data = NBA1, aes(x = Lengte, y = Pred), color = "blue") +
-  geom_ribbon(data = NBA1, aes(x = Lengte, ymin = Lower, ymax = Upper), alpha = 0.1) +
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+  geom_point() +
+  geom_smooth(method = "lm", aes(fill = NBA) , alpha = 0.1) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
+  scale_fill_manual(values = c("#17408B", "#C9082A")) +
+   xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
   theme_minimal()
 ```
 
@@ -299,7 +299,8 @@ Ook als je een regressies zou doen, dan blijkt dat
 Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen.
 
 ```{r, results = 'asis'}
-
+regNBA <- lm(Snelheid ~ Lengte, data = NBA)
+regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
 
 stargazer(regNBA, regNBA1, header = FALSE, type = "html")
 ```
@@ -339,9 +340,18 @@ Vb <- as.data.frame(Budgetten) %>%
 
 
 
-ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
+
+
+
+
+
+
+
+
+
+ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
   geom_point() + 
-  geom_smooth(method = "lm", aes(group = 1)) +
+  geom_smooth(method = "lm") +
   theme_minimal()
 
 ```
@@ -601,7 +611,7 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
-  ylab("Gemiddeld Interventie Effect")
+  ylab("Gemiddeld Interventie Effect") +
   ylim(-1,1) +
   theme_minimal() +
   coord_flip()
