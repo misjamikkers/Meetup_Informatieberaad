@@ -23,50 +23,77 @@ knitr::opts_chunk$set(eval = TRUE, echo = FALSE, warning = FALSE, message = FALS
 library(tidyverse)
 library(dagitty)
 library(caret)
+library(knitr)
 library(ranger)
 library(stargazer)
 
 ```
 
-
-# Is voorspellen de belangrijkste tool
-
+# Inleiding
 
 
+## Inleiding
+
+![](DAGbeach.JPG)\
 
 
-# Causaliteit?
 
 
+## Voorbeeld van een dataset
+
+```{r}
+X_1 <- c("Man", "Vrouw", "Vrouw", "...")
+
+PO <- as.data.frame(X_1) %>%
+  mutate(X_2 =  c("9", "60", "7", "...")) %>%
+  mutate(`...` = c("14", "36", "2", "...")) %>%
+  mutate(X_i =  c("1", "0", "1", "...")) %>%
+  mutate(I = c("0", "1", "1", "...")) %>%
+  mutate(Y0 = c("67", "NA", "NA", "...")) %>%
+  mutate(Y1 = c("NA", "113", "54", "..."))
+
+
+
+kable(PO)
+
+```
+
+# Causaliteit
+
+## Voorspellen versus begrijpen
 
 
 ```{r}
 set.seed(123)
 
-N <- 100
+N <- 1000
 
-IQouders <- rnorm(n = N, mean = 100, sd = 10)
+IQ_groep <- rep(c(1:10), times = N/10)
 
-conf <- as.data.frame(IQouders) %>%
-  mutate(Aantal_boeken = IQouders/5 + rnorm(n= N,  mean = 0), sd = 1) %>%
-  mutate(C = 5 * IQouders + rnorm(n = N, mean = 0, sd = 2)) %>% # ruwe scores voor Cito
+conf <- as.data.frame(IQ_groep) %>%
+  mutate(IQ = rnorm(n= N, mean = 75 + 5 * IQ_groep, sd = 2)) %>%
+  group_by(IQ_groep) %>%
+  mutate(IQ_mean = mean(IQ)) %>%
+  ungroup() %>%
+  mutate(Aantal_boeken = IQ_mean/3 + rnorm(n= N,  mean = 0), sd = 6) %>%
+  mutate(C = 5 * IQ_mean + rnorm(n = N, mean = 0, sd = 10)) %>% # ruwe scores voor Cito
   mutate(Cito = (C - min(C))/max((C - min(C)))*50 + 500) %>% # verander ruwe scores in scores in de relevante range
-  mutate(IQ_groep = as.factor(ntile(IQouders, 10))) %>%
+  mutate(IQ_groep = as.factor(IQ_groep)) %>%
   select(-C)
 
 ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
   geom_point() +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "lm") + 
+  xlab("Aantal boeken dat ouders bezit") +
+  ylab("Cito scores van hun kinderen") +
   theme_minimal()
 
 
 
 ```
 
+## Voorspellen versus begrijpen
 
-
-
-# Causaliteit?
 
 ```{r}
 
@@ -82,6 +109,163 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 
 
+# DAGS
+
+## Basisvormen DAGs
+
+  
+
+```{r}
+
+Label <- c("X", "Z", "Y", "X", "Z", "Y", "X", "Z", "Y") # Ik gebruik dit niet: geom_text en ggeom_text_repel plaatsen labels niet mooi
+
+DAG <- as.data.frame(Label) %>%
+  mutate(X = c(1, 2, 3, 5, 6, 7, 9, 10, 11)) %>%
+  mutate(Y = c(1, 3, 1, 1, 3, 1, 1, 3, 1))
+
+ggplot(data = DAG, aes(x = X, y = Y)) +
+  geom_point(size = 3, color = "black") +
+  geom_segment(x = 2, xend = 1, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 2, xend = 3, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 5, xend = 5.9, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 7, xend = 6.1, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 9, xend = 9.9, y = 1.1, yend = 2.9, arrow = arrow(), size = 1, color = "blue") +
+  geom_segment(x = 10.1, xend = 11, y = 2.9, yend = 1.1, arrow = arrow(), size = 1, color = "blue") +
+  annotate("text", x = 1, y = 0.8, label = "X") +
+  annotate("text", x = 2, y = 3.2, label = "Z") +
+  annotate("text", x = 3, y = 0.8, label = "Y") +
+  annotate("text", x = 5, y = 0.8, label = "X") +
+  annotate("text", x = 6, y = 3.2, label = "Z") +
+  annotate("text", x = 7, y = 0.8, label = "Y") +
+  annotate("text", x = 9, y = 0.8, label = "X") +
+  annotate("text", x = 10, y = 3.2, label = "Z") +
+  annotate("text", x = 11, y = 0.8, label = "Y") +
+  annotate("text", x = 2, y = 3.5, label = "Confounder") +
+  annotate("text", x = 6, y = 3.5, label = "Collider") +
+  annotate("text", x = 10, y = 3.5, label = "Mediator") +
+  ylim(0, 5) +
+    theme_void()
+
+```
+
+
+
+
+
+## Confounder
+
+
+
+```{r}
+citodag <- dagitty('dag {
+IQ_ouders [pos = "1,0"]
+Aantal_boeken [pos = "0,1"]
+Cito_score [pos = "2,1"]
+
+Aantal_boeken <- IQ_ouders -> Cito_score
+
+}')
+
+
+
+plot(citodag)
+```
+
+
+
+## Collider
+
+
+```{r}
+NBAdag <- dagitty('dag {
+NBA [pos = "1,0"]
+Snelheid [pos = "0,1"]
+Lengte [pos = "2,1"]
+
+Lengte -> NBA <- Snelheid
+
+}')
+
+
+
+plot(NBAdag)
+```
+
+## Veroorzaakt Lengte Snelheid?
+
+```{r}
+
+set.seed(1)
+Lengte <- rnorm(n = 500, mean = 1.8, sd = 0.15)
+
+NBA <- as.data.frame(Lengte) %>%
+  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>%
+  mutate(Lengte_stand = Lengte/max(Lengte)) %>%
+  mutate(Snelheid_stand = Snelheid/max(Snelheid)) %>%
+  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0)))
+  
+
+
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
+  geom_point() +
+  geom_smooth(method = "lm", aes(group = 1)) +
+  scale_color_manual(values = c("#17408B", "#C9082A")) +
+  xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
+  theme_minimal()
+
+```
+
+
+## Veroorzaakt Lengte Snelheid?
+
+
+```{r}
+
+
+ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
+  geom_point() +
+  geom_smooth(method = "lm", aes(fill = NBA) , alpha = 0.1) +
+  scale_color_manual(values = c("#17408B", "#C9082A")) +
+  scale_fill_manual(values = c("#17408B", "#C9082A")) +
+   xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
+  theme_minimal()
+```
+
+
+## Mediator
+
+
+```{r}
+Voetbaldag <- dagitty('dag {
+Teamsterkte [pos = "1,0"]
+Budget [pos = "0,1"]
+Punten [pos = "2,1"]
+
+Budget -> Teamsterkte -> Punten
+
+}')
+
+
+
+plot(Voetbaldag)
+
+```
+
+## Budgetten en punten
+
+```{r}
+set.seed(123)
+Budgetten <- rnorm(n = 100, mean = 30, sd = 12)
+
+Vb <- as.data.frame(Budgetten) %>%
+  mutate(Teamsterkte = (3 * Budgetten)/(3*mean(Budgetten)) * 100 + rnorm(n = 100, mean = 0, sd = 10)) %>%
+  mutate(Hulppunten = 2 * Teamsterkte + rnorm(n= 100, mean = 0, sd = 15)) %>%
+  mutate(Punten = round((Hulppunten - min(Hulppunten))/max((Hulppunten - min(Hulppunten)))*63 + 23, 0 )) %>% # punten in de relevante range
+  select(- Hulppunten) %>%
+  mutate(Teamsterkte_groep = as.factor(ntile(Teamsterkte, 10)))
+  
 
 
 
@@ -94,48 +278,92 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 
 
+ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  theme_minimal()
+
+```
+
+
+## Budgetten en punten
+
+```{r}
+ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  theme_minimal()
+```
+
+
+## Voorbeeld van een meer complexe DAG
 
 
 
+```{r}
 
 
+thesismodel10 <- dagitty('dag {
+  GSB [pos="0,5"]
+  FTE [pos="1,7"]
+  DR [pos="2,7"]
+  GB [pos="1,5"]
+  BB [pos="1,3"]
+  PRB [pos="3,5"]
+  LSB [pos="4,5"]
+  GM [pos="5,3"]
+  PRM [pos="6,3"]
+  LSM [pos="7,3"]
+  FPh [pos="3,1"]
+  FPc [pos="7,1"]
+  SC [pos="7,7"]
+  UR [pos="7,14"]  
+  AF [pos="7,6"]
+  BP [pos="7,15"]
+  BM [pos="5,2"]
+  SS [pos="7,8"]
+  ST [pos="7,9"]
+  AS [pos="7,10"]
+  SM [pos="7,11"]
+  CM [pos="7,13"]
+  PQ [pos="9,5"]
+  
+  GSB-> GB -> PRB -> LSB -> GM -> PRM -> LSM -> PQ
+  BB -> PRB
+  BM -> PRM
+  LSB -> LSM
+  FTE -> GB
+  FPh -> GB
+  FPh -> FPc
+  LSB -> SS
+  LSB -> SM
+  LSB -> ST
+  LSB -> AS
+  LSB -> SC
+  LSB -> AF
+  DR -> GB
+  DR -> PRB
+  LSB -> PQ
+  SS -> PQ
+  SM -> PQ
+  ST -> PQ
+  AS -> PQ
+  SC -> PQ
+  CM -> PQ
+  UR -> PQ
+  AF -> PQ
+  BP -> PQ
+  FPc -> PQ
+  CM -> SM
+}')
 
-# Confounders
+plot(thesismodel10)
+```
 
-- data ananimatie over ipads <- Opleiding ouders -> cito score
-
-- Dit gaat over het toevogen van variabelen in je analyse
-
-# Moeten we dan alle mogelijke variabelen includeren in de analyse?
-
-- Nu big data/computer power/machine learning dus alles opgelost?
-- Nee: bv unobserved confounders (voorbeeld) met plaatje
-
-# Andere reden:
-
-- voorbeeld vliegtuigen (collider)
-
-# Hoe bepalen we nu welke variabelen we moeten selecteren voor de analyse
+# Machine learning en causaliteit
 
 
-- Uitleg dag
-
-- Testable implacations
-- geen functionele vormen
-- markov blanket
-
-
-# Voorbeelden
-
-- collider voorbeeld
-- DAG van Mijntje/EPI?
-
-
-
-
-# Voorbeeld
-
-
+## Machine learning en causaliteit
 
 
 ```{r}
@@ -158,8 +386,23 @@ plot(g)
 ```
 
 
+## Aanpak
 
-# Summary statistics
+1. Fit een Random Forest model op de data
+2. Voorspel met het model alle uitkomsten als 
+    - Treatment = 0
+    - Treatment = 1
+3. Bereken het treatment effect als het verschil tussen de Ziektelast wanneer de Treatment 1 is en de Ziektelast wanneer de Treatment 0 is.
+
+We doorlopen deze procedure 2 keer:
+
+a.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen ("het verkeerde model")
+b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus de collider $Zorgkosten$ ("het goede model")
+
+
+## Summary statistics
+
+
 
 ```{r, results = 'asis'}
 
@@ -170,26 +413,21 @@ X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, nco
 
 d1 <- as.data.frame(X) %>%
 mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-mutate(Gezondheid = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-mutate(Zorgkosten = 3 * Treatment + 5 * Gezondheid  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-select(Gezondheid, Treatment, Zorgkosten, everything())
+mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+select(Ziektelast, Treatment, Zorgkosten, everything())
 
-stargazer(d1, type= "html",  header = FALSE)
+
+
+stargazer(d1, type= "latex",  header = FALSE, font.size = "tiny")
 
 ```
 
-# Stappenplan
-
-Het Treatment effect per persoon is het 
-
-1. Fit een Random Forest op de data
-2. Voorspel met het model alle uitkomsten als 
-    - Treatment = 0
-    - Treatment = 1
-3. Bereken het treatment effect
 
 
-# Voorspellingen Random Forest
+
+
+## Voorspellingen Random Forest
 
 
 ```{r}
@@ -200,13 +438,13 @@ tr_control <- trainControl(method = "repeatedcv",
                             repeats = 5)
  
  
- rf_fit_all <- train(Gezondheid ~ . ,
+ rf_fit_all <- train(Ziektelast ~ . ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
                  trControl = tr_control)
  
- rf_fit <- train(Gezondheid ~ .-Zorgkosten ,
+ rf_fit <- train(Ziektelast ~ .-Zorgkosten ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
@@ -228,7 +466,8 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) +
 
 ```
 
-# Schatting van het treatment effect
+## Schatting van het treatment effect
+
 
 ```{r}
 
@@ -239,30 +478,22 @@ set.seed(123)
 d1a <- d1 %>%
   select(-Treatment) %>%
   mutate(Treatment = 0) %>%
-  select(Gezondheid, Treatment, Zorgkosten, everything()) 
+  select(Ziektelast, Treatment, Zorgkosten, everything()) 
 
 
 d1b <- d1 %>%
   select(-Treatment) %>%
   mutate(Treatment = 1) %>%
-  select(Gezondheid, Treatment, Zorgkosten, everything())
+  select(Ziektelast, Treatment, Zorgkosten, everything())
 
 
 # Voorspel waarden met model alle variabeblen
 
-T0<- predict(rf_fit_all, newdata= d1a)
-T1 <- predict(rf_fit_all, newdata= d1b)
 
-
-T0a <- predict(rf_fit, newdata = d1a)
-T1a <- predict(rf_fit, newdata = d1b)
-
-
-# Maak data frames
-
-d2 <- as.data.frame(T0) %>%
-  mutate(T1 = T1) %>%
+d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
+  mutate(T1 = predict(rf_fit_all, newdata= d1b)) %>%
   mutate(TE = T1 - T0)
+
 
 d2a <- d2 %>%
   summarise(ATE = mean(TE), Sd = sd(TE)) %>%
@@ -271,8 +502,8 @@ d2a <- d2 %>%
   mutate(Model = as.factor("Model met zorgkosten"))
 
 
-d3 <- as.data.frame(T0a) %>%
-  mutate(T1a = T1a) %>%
+d3 <- data.frame(T0a = predict(rf_fit, newdata = d1a)) %>%
+  mutate(T1a = predict(rf_fit, newdata = d1b)) %>%
   mutate(TEa = T1a - T0a)
 
 d3a <- d3 %>%
@@ -288,12 +519,21 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
+  ylab("Gemiddeld Interventie Effect") +
   ylim(-1,1) +
   theme_minimal() +
   coord_flip()
 
 
 ```
+
+# Conclusie
+
+## Conclusie
+
+- Het is essentieel om een causaal model te hebben
+- Wanneer machine learning wordt gebruikt is de verleiding groot om alle variabelen in het model te gebruiken
+- We hebben laten zien dat dit kan leiden tot misleidende conclusies
 
 
 

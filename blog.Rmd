@@ -36,17 +36,25 @@ library(ggrepel)
 # Inleiding
 
 
-Het doel van dit blog is om een toegangelijke inleiding te geven over causaliteit. Dit blog is geschreven naar aanleiding van een uitnodiging door XX om een workshop te organiseren voor YY.
+Het doel van dit blog is om een toegangelijke inleiding te geven over causaliteit. Dit blog is geschreven naar aanleiding van een uitnodiging om een workshop te organiseren voor de 7de Meet Up van het Informatieberaad Zorg op 23 september 2019. Het publiek van deze Meet Ups is zeer divers: patiënten, zorgprofessionals, beleidsmakers én leveranciers en inkopers van technische oplossingen voor de zorg zijn bij deze Meet Ups aanwezig.
+
+[Gertjan Verhoeven](https://gsverhoeven.github.io/#about) en ik hebben de presentatie tijdens de Meet Up omgezet naar dit blog.
 
 Het voorspellen van fenomenen met behulp machine learning is de afgelopen jaren een groot succes gebleken. Grote hoeveelheden data en toegenomen computerkracht hebben geleid tot veel ontwikkelingen en toepassingen op het gebied van voorspellen. Voorbeelden zijn het real time voorspellen van credit card fraude, het systeem van aanbevelingen bij bedrijven als Spotify, Bol, Netflix etc. Deze modellen hebben gemeen dat ze zich richten op het voorspellen van fenomenen, maar niet gericht zijn op causaliteit. Als de wereld verandert, dan vermindert de voorspellende waarde van het model en wordt het model opnieuw "getraind".
 
-In dit blog willen het hebben op het combineren van de voorspelkracht van allerlei modellen met de notie van causaliteit.
+[Medisch Contact](https://www.medischcontact.nl/nieuws/laatste-nieuws/artikel/google-voorspelt-griep.htm) schrijft bijvoorbeeld dat Google een griepgolf kan voorspellen op basis van zoektermen. Maar dat is geen causaliteit. Het is namelijk niet zo dat het zoekgedrag van mensen griep veroorzaakt. Dus als het zoekgedrag van mensen verandert als gevolg van deze berichtgeving, dan verandert het aantal griepgevallen niet. 
 
-Causaliteit is counter factual
+Wij zullen in dit blog betogen dat het in een aantal gevallen belangrijker is om fenomenen te begrijpen dan te voorspellen. En wat het betekent voor analyses om de switch te maken van voorspellen naar begrijpen en hoe de voorspelkracht van allerlei algoritmes gecombineerd kan worden met de notie van causaliteit.
 
-Dus waarde Y bij I=0 minus bij I=1
+# Cum hoc ergo propter hoc
 
-Maar we observeren altijd maar 1 van deze waarden:
+Het feit dat 2 verschijnselen samen optreden, cum hoc ergo propter hoc ("met dit, dus vanwege dit"") betekent niet dat er een oorzakelijk verband is tussen 2 fenomenen. Bij causaliteit gaat het om oorzaak en gevolg. Als een bepaald fenomeen de oorzaak is van een ander fenomeen, dan kunnen we ook counter factuals bepalen. Dus wanneer het volgen van een opleiding leidt tot meer inkomen, dan kunnen we ook voor een gegeven persoon bepalen wat zijn inkomen geweest _zou zijn_ wanneer hij een andere opleiding gevolgd zou hebben.
+
+Of in andere woorden, een causaal effect kan aangeduid worden als het verschil tussen de uitkomst wanneer een bepaalde interventie is toegepast en de uitkomst wanneer de interventie niet zou worden toegepast.  
+
+Helaas zien de data die we krijgen er vaak als volgt uit:
+
+
 
 ```{r}
 X_1 <- c("Man", "Vrouw", "Vrouw", "...")
@@ -65,17 +73,22 @@ kable(PO)
 
 ```
 
+Waarbij de uitkomst is weergegeven als $Y$ en $I$ staat voor het wel ($I=1$) of niet ($I=0$) doen van een interventie. $Y0$ is de uitkomst wanneer er geen interventie is gedaan en $Y1$ is de uitkomst wanneer er wel een interventie is gedaan. De $X$-en staan voor voorspellende kenmerken.
 
-Met machinelearning kunnen we de ontbrekende waarden goed voorspellen. Daarmee zouden machine learning kunnen gebruiken voor causal inference [Vertalen]. Om het netjes te doen zouden we overigens de alle waarden voor $Y$ bij $I = 0$ en $I = 1$ moeten voorspellen.
+Het probleem is dat we altijd maar 1 van de potentiele uitkomsten kennen. De ontrekende uitkomst is in de tabel weergegven als "NA" 
 
-In dit blog willen we laten zien, dat je dat niet zo maar kunt doen. Om echt causale conclusies te kunnen trekken, moet je goed nadenken over welke variabelen je wel en niet kunt gebruiken om $Y$ te kunnen voorspellen.
+Met machinelearning kunnen we ontbrekende waarden vaak goed voorspellen. Daarmee kunnen we machine learning kunnen gebruiken voor het schatten van causale effecten. Om het netjes te doen zouden we overigens alle waarden voor $Y$ bij $I = 0$ en $I = 1$ moeten voorspellen.
+
+In dit blog willen we laten zien, dat je dat niet zo maar kunt doen. Om echt causale conclusies te kunnen trekken, moet je goed nadenken over welke variabelen je wel en niet kunt gebruiken om $Y$ gegeven te interventie $I$ te kunnen voorspellen.
 
 # Voorspellen versus begrijpen
 
 
 Bij het voorspellen van fenomenen gaat het om het vinden van patronen ("correlaties") in de data. 
 
-Het beschrijven en voorspellen van fenomen kan op grond van de data alleen. Echter, om fenomenen te kunnen **verklaren** (begrijpen) is een causaal model nodig. In een causaal model wordt de kennis over oorzaken en gevolgen expliciet vastgelegd. Met een causaal model kunnen vragen beantwoord worden als:
+Het beschrijven en voorspellen van fenomen kan op grond van de data alleen. Echter, om fenomenen te kunnen **verklaren** (begrijpen) is een causaal model nodig. In een causaal model wordt de kennis over oorzaken en gevolgen expliciet vastgelegd. Het causale model staat dus buiten de data en geeft weer wat de veronderstellingen zijn van de onderzoeker.
+
+Gegeven een causaal model kunnen vragen beantwoord worden als:
 
 * Wat zijn de oorzaken van een bepaald fenomeen?
 * Welke gevolgen heeft ingrijpen op een oorzaak op het bestudeerde fenomeen?
@@ -148,9 +161,9 @@ In het kader van dit blog definieren we causaliteit als het verschijnsel dat als
 
 ## Introductie
 
-Uitleg over DAGS
+Het is vaak mogelijk om een causaal model in een stelsel van wiskundige vergelijkingen weer te geven. Dit is vaak complex. Daarom worden causale modellen vaak visueel weergegeven als _DAG_'s: Directed Acyclic Graphs. Deze DAG's zijn een visuele weergave van een wiskundig model. 
 
-3 basisvormen
+DAG's kunnen heel simpel zijn, maar ook complex. Elke complexe DAG kan uit 3 basisvormen worden samengesteld.  
 
 ```{r}
 
@@ -185,12 +198,19 @@ ggplot(data = DAG, aes(x = X, y = Y)) +
 
 ```
 
+Een DAG bestaat uit 3 onderdelen:
+
+1.  pijlen die de richting aangeven van causale relaties
+2.  variabelen (die zowel geobserveerd als niet geobserveerd kunnen zijn)
+3.  ontbrekende pijlen tussen variabelen
+
+Hierna bespreken we de 3 basisvormen met een voorbeeld op basis van gefingeerde data. Daarna laten we een meer complexe DAG zien en tenslotte laten we met een voorbeeld zien hoe een DAG behulpzaam kan zijn bij het trekken van causale conclusies.
 
 
 
 ## Confounder
 
-We kunnen het hierboven gegeven voorbeeld weergeven in een causaal model:
+We kunnen het hierboven gegeven voorbeeld over het aantal boeken dat ouders bezit en de CITO score van hun kinderen weergeven in een causaal model:
 
 ```{r}
 citodag <- dagitty('dag {
@@ -207,8 +227,19 @@ Aantal_boeken <- IQ_ouders -> Cito_score
 plot(citodag)
 ```
 
+Zoals uit het voorbeeld met de data bleek, maak het uit of je de confouder (in het Nederlands: de gezamenlijke oorzaak) wel of niet opneemt in je analyse. In dit geval wordt er gezegd dat het pad tussen de variable $Aantal\_boeken$  en $Cito\_score$ "open" is. Dat betekent er informatie kan stromen tussen die variabelen. Om een causale relatie tussen het $Aantal\_boeken$  en de $Cito\_score$ te kunnen identificeren, moet het pad gesloten worden. Het pad kan gesloten worden door de variable $IQ\_ouders$ in de analyse op te nemen. In statistisch jargon wordt dan gezegd dat er "gecontroleerd" wordt voor de variabele $IQ\_ouders$. 
+
+Uit het datavoorbeeld blijkt dat wanneer we de variabele $IQ\_ouders$ niet opnemen in de analyse, dat we dan een correlatie vinden tussen de variabelen het $Aantal\_boeken$  en de $Cito\_score$. Wanneer we de de variabele $IQ\_ouders$ wel opnemen in de analyse, verdwijnt de correlatie.
+
+Dus wanneer we uitgaan van de DAG, dan kunnen we alleen het causale effect identificeren wanneer we de confouder meenemen. Als we geen data zouden hebben over de variabele $IQ\_ouders$, dan kunnen we dus ook geen causaal effect schatten.
+
 ## Collider
 
+De tweede basisvorm wordt ook wel de "collider genoemd". In het Nederlands zou je dit kunnen vertalen als het gezamenlijk gevolg. 
+
+In dit voorbeeld gaan we er vanuit dat we een causale relatie willen identificeren tussen Lengte en Snelheid binnen een groep basketbalspelers. Daarbij gaan we er vanuit dat er zowel professionele basketballers zijn ("NBA") als amateurs ("geen NBA"). Spelers in de NBA zijn in het algemeen zowel snel als lang. Wanneer ze niet lang zijn, dan moeten ze hun lengte te compenseren wel enorm snel zijn (en vice versa).
+
+Deze informatie kunnen we weergeven in de volgende DAG:
 
 ```{r}
 NBAdag <- dagitty('dag {
@@ -225,35 +256,10 @@ Lengte -> NBA <- Snelheid
 plot(NBAdag)
 ```
 
-In deze DAG beschrijft een model waarbij snelle en lange mensen in de NBA (De Amerikaans professionele basketbalcompetitie) spelen. Om in basketbalprofessional te kunnen worden moet je lang en snel zijn. NBA-spelers die niet lang zijn, moeten extreem snel zijn en spelers die niet snel zijn moeten extreem lang zijn. 
+We kunnen nu kijken wat er gebeurd wanneer we wel of niet de professionele status van de basketballers meenemen in onze analyse.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-We bekijken nu het volgende causale model met een collider:
-
-
-
-
+Wanneer we "collider" niet meenemen in onze analyse, dan vinden we in onze data geen correlatie tussen Lengte en Snelheid binnen onze groep basketballers. 
 
 ```{r}
 
@@ -278,6 +284,10 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
 
 ```
 
+Maar wanneer we de professionele status van onze basketballers wel meenemen in de analyse, vinden we plotseling wel een verband!
+
+
+
 ```{r}
 
 
@@ -296,7 +306,7 @@ Ook als je een regressies zou doen, dan blijkt dat
 - geen verband is tussen lengte en snelheid
 - maar er wel een verband ontstaat zodra je toevoegt dat mensen in de NBA spelen.
 
-Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen.
+
 
 ```{r, results = 'asis'}
 regNBA <- lm(Snelheid ~ Lengte, data = NBA)
@@ -305,7 +315,19 @@ regNBA1 <- lm(Snelheid ~ Lengte + NBA, data = NBA)
 stargazer(regNBA, regNBA1, header = FALSE, type = "html")
 ```
 
+&nbsp;
+
+Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen. In termen van de DAG zeggen we dat een collider de informatiestroom tussen de variablen $Lengte$ en $Snelheid$ blokkeert. Door deze variabele mee te nemen in de analyse, deblokkeren we het pad. 
+
+We moeten colliders dus nooit meenemen in analyses. Wanneer we dat wel doen, dan trekken we ten onrechte de conclusie dat er een causaal verband bestaat tussen in dit geval Lengte en Snelheid bij basketballers.
+
 ## Mediator
+
+De derde basisvorm wordt de mediator genoemd. In dit geval beinvloedt 1 variabele een tweede variabele die op haar beurt een derde variable beinvloedt.
+
+In het volgende gestileerde voorbeeld zijn we geinteresseerd in de causale relatie tussen het budget van bijvoorbeeld een professioneel voetbalteam de de punten die dat team haalt.
+
+Omdat je (althans: voor zover wij weten) geen punten kunt kopen, moet een eventuele causale relatie door een tweede variable lopen. In dit geval zegt de DAG dat teams met een hoger budget zich betere spelers kunnen veroorloven. En een team met betere spelers behaalt meer punten.
 
 ```{r}
 Voetbaldag <- dagitty('dag {
@@ -325,6 +347,10 @@ plot(Voetbaldag)
 
 
 Op basis van deze DAG kunnen we data genereren en deze data in een grafiek weergeven.
+
+Ook in dit geval hebben we data op basis van deze DAG gesimuleerd en willen we laten zien wat er gebeurt wanneer de mediator (in dit geval de variabele $Teamsterkte$) wel of niet wordt opgenomen in de analyse.
+
+Wanneer we de variable $Teamsterkte$ niet opnemen in de analyse, dan zien we een vrij sterke correlatie tussen $Teamsterkte$ en het behaalde aantal $Punten$.
 
 ```{r}
 set.seed(123)
@@ -356,6 +382,8 @@ ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
 
 ```
 
+Wanneer we de variabele $Teamsterkte$ zouden toevoegen aan onze analyse, dan verdwijnt de correlatie. Dit is vergelijkbaar wat er gebeurt met de confouder.
+
 
 ```{r}
 ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
@@ -364,6 +392,7 @@ ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
   theme_minimal()
 ```
 
+Ook uit de resultaten van een simpele regressie blijkt dit:
 
 ```{r, results = 'asis'}
 regvb <- lm(Punten ~ Budgetten, data = Vb)
@@ -373,22 +402,16 @@ stargazer(regvb, regvb1, header = FALSE, type = "html")
 
 ```
 
+&nbsp;
 
-# Hoe bepalen we nu welke variabelen we moeten selecteren voor de analyse
-
-
-
-
-- Testable implacations
-- geen functionele vormen
-- markov blanket
+Maar in dit geval willen we de variabele $Teamsterkte$ niet meenemen: We willen weten of meer budget leidt tot meer punten. Dat wil zeggen dat benieuwd zijn naar het aantal punten in het geval we het budget van het voetbalteam verhogen of verlagen. Om een antwoord op die causale vraag te kunnen geven, kan de mediator niet worden meegenomen in de analyse.
 
 
 # Voorbeeld van een meer complexe DAG
 
 In haar afstudeerscriptie voor haar studie economie heeft Mijntje Jansen in 2019 onderzoek gedaan naar de invloed van de samenstelling van het bestuur in de verpleeghuiszorg qua geslacht op de beleefde kwaliteit van zorg. Om deze vraag te kunnen beantwoorden heeft ze de onderstaande DAG gemaakt.
 
-Deze DAG laat zien dat DAG's behoorlijk complex kunnen zijn. Het is bij meer complexe DAG's ingewikkeld om te bepalen welke variabelen nodig zijn om causale verbanden te kunnen indentificeren. De R-package `dagitty` bepaalde de minimum adjustment set geautomatiseerd.
+Deze DAG laat zien dat DAG's behoorlijk complex kunnen zijn. Het is bij meer complexe DAG's ingewikkeld om te bepalen welke variabelen nodig zijn om causale verbanden te kunnen indentificeren. Dit wordt ook wel de "minimal adjustment set" genoemd. De R-package `dagitty` bepaalde de minimum adjustment set geautomatiseerd.
 
 Een tweede reden om deze DAG hier te laten zien is dat dit voorbeeld illustreert dat zelfs complexe modellen zoals hier zijn weergegeven goed kunnen worden besproken met andere -niet noodzakelijkerwijs wiskundig geschoolde- experts. In dit geval heeft Mijntje haar model besproken met en aangepast na gesprekken met bestuurders van verpleeghuisinstellingen.
 
@@ -457,13 +480,14 @@ plot(thesismodel10)
 
 
 
-# Voorbeeld
+# Machine learning en causaliteit
 
+Nu we de basisbeginselen van variabele selectie en causaliteit hebben besproken, we will graag een voorbeeld laten zien hoe er met machine learning causale effecten geschat kunnen worden. We laten zien dat het causale model erg belangrijk is voor de conclusies.
 
 In dit voorbeeld gaan we uit van de volgende DAG.
 
 We hebben een aantal variabelen $V_i, 1 \leq i \leq 8$ (Zoals bijvoorbeeld leeftijd, chronische ziekten etc.) die een invloed hebben op de ziektelast die mensen ondervinden. 
-Deze Ziekte heeft weer een invloed op de zorgkosten die mensen maken.
+Deze ziektelast heeft weer een invloed op de zorgkosten die mensen maken.
 
 Tenslotte is er een interventie $T$. Deze interventie is heel duur (en heeft daarom een invloed op de zorgkosten). Deze interventie heeft geen invloed op de ziektelast.
 
@@ -486,8 +510,13 @@ plot(g)
 
 ```
 
+We hebben op op basis van deze DAG data gesmimuleerd. Dat betekent dus dat er in onze data geen verband is tussen het wondermiddel ("Treatment") en de ziektelast.
 
-We kunnen een causaal effect per persoon schatten. Dat kunnen we doen met behulp van het volgende stappenplan:
+Uit de DAG blijkt verder dat de variabele $Zorgkosten$ een collider is en niet zou moeten worden meegnomen in een analyse waarin we het causale effect van onze $Treatment$ op de $Ziektelast$ willen schatten.
+
+Met behulp van machine learning kunnen we een causaal effect per persoon schatten. We gebruiken in dit geval het [Random Forest Algoritme](https://en.wikipedia.org/wiki/Random_forest), omdat Random Forest een populair algortime is.
+
+Dat kunnen we doen met behulp van het volgende stappenplan:
 
 1. Fit een Random Forest model op de data
 2. Voorspel met het model alle uitkomsten als 
@@ -495,9 +524,16 @@ We kunnen een causaal effect per persoon schatten. Dat kunnen we doen met behulp
     - Treatment = 1
 3. Bereken het treatment effect als het verschil tussen de Ziektelast wanneer de Treatment 1 is en de Ziektelast wanneer de Treatment 0 is.
 
+We doorlopen deze procedure 2 keer:
+
+a.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen ("het verkeerde model")
+b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus de collider $Zorgkosten$ ("het goede model")
 
 
-# Summary statistics
+## Summary statistics
+
+In deze tabel zien we een samenvatting van onze dataset.
+
 
 ```{r, results = 'asis'}
 
@@ -512,15 +548,21 @@ mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 
 mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
 select(Ziektelast, Treatment, Zorgkosten, everything())
 
+
+
 stargazer(d1, type= "html",  header = FALSE)
 
 ```
 
 
+&nbsp;
 
 
+## Voorspellingen Random Forest
 
-# Voorspellingen Random Forest
+Als we onze schattingen doen, dan kunnen we eerst kijken naar de voorspelkracht van de modellen. Daarvoor gebruiken we [$R^2$](https://www.investopedia.com/terms/r/r-squared.asp). 
+
+Uit de onderstaande grafiek blijkt dat het "verkeerde model" veel beter voorspelt dan het "goede model". Dus wanneer we het "beste model" zouden kiezen op basis van hoe goed het model voorspelt, dan zouden we het verkeerde model kiezen. 
 
 
 ```{r}
@@ -559,7 +601,11 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) +
 
 ```
 
-# Schatting van het treatment effect
+## Schatting van het treatment effect
+
+Dat we het verkeerde model kiezen als we het model selecteren op basis van voorspelkracht blijkt uit de onderstaande grafiek.
+
+We hebben onze data zo gesimuleerd dat er geen verband bestast tussen onze $Treatment$ en de $Ziektelast$. Het "goede model" schat het door ons bepaalde nul-effect vrij precies. Het "verkeerde" model daarentegen laat ten onrechte zien dat onze $Treatment$ de $Ziektelast$ verlaagt.
 
 ```{r}
 
@@ -619,12 +665,16 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
 
 ```
 
+# Conclusie
 
-#Literatuur
+In dit blog hebben we laten zien dat het essentieel is om een causaal model te maken als je causale effecten wilt schatten. Zeker wanneer er machine learning technieken worden gebruikt, is de verleiding groot om zoveel mogelijk variabelen mee te nemen. In dit blog hebben we laten zien dat het toegeven aan deze verleiding tot verkeerde conclusies kan leiden.
+
+# Literatuur
 
 - even checken hoe we dat goed krijgen
 - Book of why
 - Elwert
 - Causality primer van pearl
 - voorbeeld boeken komt is ontleend aan Freakanomics
+- ik weet niet meer waar ons voorbeeld van de NBA vandaan komt
 
