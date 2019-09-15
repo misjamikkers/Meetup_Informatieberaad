@@ -27,6 +27,7 @@ library(ranger)
 library(stargazer)
 library(knitr)
 library(ggrepel)
+library(randomForest)
 ```
 
 
@@ -658,6 +659,105 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
 
 
 ```
+
+
+```{r}
+# Double machine learning
+
+set.seed(123)
+
+# Goede Model
+
+
+z <- as.matrix(d1 %>%
+  select(- Ziektelast, - Treatment, - Zorgkosten))
+
+d <- as.matrix(d1 %>%
+  select(Treatment))
+
+y <- as.matrix(d1 %>%
+  select(Ziektelast))
+
+I <- sort(sample(1: nrow(d1), nrow(d1)/2)) # main
+IC <- setdiff(1:nrow(d1), I)
+
+# voorspelling y ~ z
+
+model1 <- randomForest(z[I, ], y[I])
+model2 <- randomForest(z[IC, ], y[IC])
+
+G1 <- predict(model1, z[IC,])
+G2 <- predict(model2, z[I,])
+
+# voorspelling y ~ d
+
+modeld1 <- randomForest(z[I, ], as.factor(d[I]))
+modeld2 <- randomForest(z[IC, ], as.factor(d[IC]))
+
+M1 <- predict(modeld1, z[IC,])
+M2 <- predict(modeld2, z[I,])
+
+# Bereken residuals  van het model
+
+V1 <- d[IC] - as.numeric(as.character(M1))
+V2 <- d[I] - as.numeric(as.character(M2))
+
+# Bereken treatment effect
+
+theta_1 <- mean(V1 * (y[IC] - G1))/ mean(V1 * d[IC])
+theta_2 <- mean(V2 * (y[I] - G2))/ mean(V2 * d[I])
+
+theta_cf <- mean(c(theta_1, theta_2))
+
+
+# Foute  Model
+
+
+z_1 <- as.matrix(d1 %>%
+  select(- Ziektelast, - Treatment))
+
+d_1 <- as.matrix(d1 %>%
+  select(Treatment))
+
+y_1 <- as.matrix(d1 %>%
+  select(Ziektelast))
+
+I <- sort(sample(1: nrow(d1), nrow(d1)/2)) # main
+IC <- setdiff(1:nrow(d1), I)
+
+# voorspelling y ~ z
+
+model1_1 <- randomForest(z_1[I, ], y_1[I])
+model2_1 <- randomForest(z_1[IC, ], y_1[IC])
+
+G1_1 <- predict(model1_1, z_1[IC,])
+G2_1 <- predict(model2_1, z_1[I,])
+
+# voorspelling y ~ d
+
+modeld1_1 <- randomForest(z_1[I, ], as.factor(d_1[I]))
+modeld2_1 <- randomForest(z_1[IC, ], as.factor(d_1[IC]))
+
+M1_1 <- predict(modeld1_1, z_1[IC,])
+M2_1 <- predict(modeld2_1, z_1[I,])
+
+# Bereken residuals  van het model
+
+V1_1 <- d_1[IC] - as.numeric(as.character(M1_1))
+V2_1 <- d_1[I] - as.numeric(as.character(M2_1))
+
+# Bereken treatment effect
+
+theta_1_1 <- mean(V1_1 * (y_1[IC] - G1_1))/ mean(V1_1 * d_1[IC])
+theta_2_1 <- mean(V2_1 * (y_1[I] - G2_1))/ mean(V2_1 * d_1[I])
+
+theta_cf_1 <- mean(c(theta_1_1, theta_2_1))
+
+
+
+```
+
+
 
 # Conclusie
 
