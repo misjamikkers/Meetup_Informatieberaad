@@ -39,14 +39,12 @@ Het doel van dit blog is om een toegankelijke inleiding te geven over causalitei
 
 Het voorspellen van fenomenen met behulp machine learning is de afgelopen jaren een groot succes gebleken. Grote hoeveelheden data en toegenomen computerkracht hebben geleid tot veel ontwikkelingen en toepassingen op het gebied van voorspellen. Voorbeelden zijn het real time voorspellen van credit card fraude, het systeem van aanbevelingen bij bedrijven als Spotify, Bol, Netflix etc. Deze modellen hebben gemeen dat ze zich richten op het voorspellen van fenomenen, maar niet gericht zijn op causaliteit. Als de wereld verandert, dan vermindert de voorspellende waarde van het model en wordt het model opnieuw "getraind".
 
-<!-- -->
-
 <!--https://www.forbes.com/sites/bernardmarr/2016/09/30/what-are-the-top-10-use-cases-for-machine-learning-and-ai/#2318fab294c9 -->
 
 [Medisch Contact](https://www.medischcontact.nl/nieuws/laatste-nieuws/artikel/google-voorspelt-griep.htm) schrijft bijvoorbeeld dat Google een griepgolf kan voorspellen op basis van zoektermen. Maar dat is geen causaliteit. Het is namelijk niet zo dat het zoekgedrag van mensen griep veroorzaakt. Dus als het zoekgedrag van mensen verandert als gevolg van deze berichtgeving, dan verandert het aantal griepgevallen niet. 
 
 De verwarring komt doordat het woord voorspellen zowel in passieve, niet-causale zin gebruikt wordt, b.v. als iemand ziek is en thuiszorg krijgt, voorspel ik een hoge kans dat deze persoon ouder dan 65 is.
-Maar het kan ook in actieve zin gebruikt worden: b.v. ik voorspel dat als ik de prijs van dit product verlaag met 5%, dat ik er dan 10% meer van verkoop. Dit is een "causale" voorspelling, oorzaak en gevolg.
+Maar het kan ook in actieve, causale zin gebruikt worden: b.v. ik voorspel dat als ik de prijs van dit product verlaag met 5%, dat ik er dan 10% meer van verkoop. Dit is een "causale" voorspelling, oorzaak en gevolg.
 
 Wij zullen in dit blog betogen dat het bij machine learning cruciaal is om onderscheid te maken tussen passief voorspellen en het voorspellen van oorzaak-gevolg effecten. En wat het betekent voor analyses om de switch te maken van voorspellen naar begrijpen en hoe de voorspelkracht van allerlei algoritmes gecombineerd kan worden met de notie van causaliteit.
 
@@ -56,7 +54,7 @@ Wij zullen in dit blog betogen dat het bij machine learning cruciaal is om onder
 
 Het feit dat 2 verschijnselen samen optreden, cum hoc ergo propter hoc ("met dit, dus vanwege dit"") betekent niet dat er een oorzakelijk verband is tussen 2 fenomenen. Bij causaliteit gaat het om oorzaak en gevolg. Als een bepaald fenomeen de oorzaak is van een ander fenomeen, dan kunnen we ons ook **counter factuals** voorstellen. Dus wanneer het volgen van een opleiding leidt tot meer inkomen, dan kunnen we ook voor een gegeven persoon vragen wat zijn inkomen geweest _zou zijn_ wanneer hij een andere opleiding gevolgd zou hebben.
 
-Of in andere woorden, een causaal effect kan aangeduid worden als het verschil tussen de uitkomst wanneer een bepaalde interventie is toegepast en de uitkomst wanneer de interventie niet zou worden toegepast.  
+Of in andere woorden, een causaal effect kan aangeduid worden als het verschil tussen de uitkomst wanneer een bepaalde interventie is toegepast, en de uitkomst wanneer de interventie **niet** zou worden toegepast.  
 
 Helaas zien de data die we krijgen er vaak als volgt uit:
 
@@ -83,8 +81,7 @@ Waarbij de uitkomst is weergegeven als $Y$ en $I$ staat voor het wel ($I=1$) of 
 
 Het probleem is dat we altijd maar 1 van de potentiele uitkomsten kennen. De ontbrekende uitkomst is in de tabel weergegeven als "NA" .
 
-Met machine learning kunnen we ontbrekende waarden vaak goed voorspellen. Daarmee kunnen we machine learning kunnen gebruiken voor het schatten van causale effecten. Om het netjes te doen zouden we overigens alle waarden voor $Y$ bij $I = 0$ en $I = 1$ moeten voorspellen.
-<!-- wat bedoel j met "om het netjes te doen" -->
+Met machine learning kunnen we ontbrekende waarden vaak goed voorspellen. Daarmee kunnen we machine learning dus gebruiken voor het schatten van causale effecten. (Om het netjes te doen zouden we overigens alle waarden voor $Y$ bij $I = 0$ en $I = 1$ moeten voorspellen, niet alleen de ontbrekende waarden.)
 
 In dit blog willen we laten zien, dat je dat niet zo maar kunt doen. Om echt causale conclusies te kunnen trekken, moet je goed nadenken over welke variabelen je wel en niet kunt gebruiken om $Y$ gegeven de interventie $I$ te kunnen voorspellen. Met andere woorden: om een **causale** voorspelling te doen over een interventie in de wereld.
 
@@ -471,9 +468,8 @@ thesismodel10 <- dagitty('dag {
 plot(thesismodel10)
 ```
 
-<!-- Hier evt discussie over uitbreiden IQ - boeken DAG -->
+<!-- Hier tijdens presentatie evt discussie over uitbreiden IQ - boeken DAG -->
 
-<!-- TOT HIER -->
 
 # Machine learning en causaliteit
 
@@ -560,7 +556,6 @@ Uit de onderstaande grafiek blijkt dat het "verkeerde model" veel beter voorspel
 
 
 ```{r}
-
 set.seed(123)
 tr_control <- trainControl(method = "repeatedcv",
                             number = 10,
@@ -585,11 +580,11 @@ dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
   mutate(`Model zonder zorgkosten` = rf_fit$resample$Rsquared) %>%
   gather(Model, Rsquared)
 
-ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) + 
+ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) + 
   geom_boxplot(width = 0.1) +
-  ylab("R kwardraat") + 
+  ylab("R kwadraat (%)") + 
   xlab(" ") +
-  ylim(0.5,1) +
+  ylim(50, 100) +
   theme_minimal() + 
   coord_flip()
 
@@ -605,7 +600,6 @@ We hebben onze data zo gesimuleerd dat er geen verband bestast tussen onze $Trea
 set.seed(123)
 
 # Maak testdata aan
-
 d1a <- d1 %>%
   select(-Treatment) %>%
   mutate(Treatment = 0) %>%
@@ -619,8 +613,6 @@ d1b <- d1 %>%
 
 
 # Voorspel waarden met model alle variabelen
-
-
 d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
   mutate(T1 = predict(rf_fit_all, newdata= d1b)) %>%
   mutate(TE = T1 - T0)
@@ -647,13 +639,13 @@ d3a <- d3 %>%
 d4 <- rbind(d2a, d3a)
 
 ggplot(data = d4, aes(x = Model, y = ATE)) +
+    geom_hline(yintercept = 0, col = "gray") +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
   ylab("Gemiddeld Interventie Effect") +
   ylim(-1,1) +
   theme_minimal() +
-  geom_hline(yintercept = 0, col = "gray") +
   coord_flip()
 ```
 
@@ -666,15 +658,15 @@ In dit blog hebben we laten zien dat het essentieel is om een causaal model te m
 
 # Meer weten?
 
-Hopelijk heb je nu de smaak te pakken en wil je meer weten over causale modellen en hoe je hiermee causale effecten kunt schatten op basis van data. Een redelijke compacte, maar toch toegankelijke introductie is een hoofdstuk van Felix Elwert, [Graphical Causal Models](http://www.ssc.wisc.edu/soc/faculty/pages/docs/elwert/Elwert%202013.pdf). 
+Hopelijk heb je nu de smaak te pakken en wil je meer weten over causale modellen, en hoe je hiermee causale effecten kunt schatten op basis van data. Een redelijke compacte, maar toch toegankelijke introductie is een boek hoofdstuk van Felix Elwert, [Graphical Causal Models](https://www.researchgate.net/profile/Felix_Elwert/publication/278717528_Graphical_Causal_Models/links/55c3b51f08aeb97567401b57/Graphical-Causal-Models.pdf). 
 
 Een uitgebreidere introductie is het inmiddels zeer populaire ["Book of Why"](http://bayes.cs.ucla.edu/WHY/) van Judea Pearl en Dana Mackenzie.
 
-Als je echt een studieboek wil met sommetjes kun je het beste het boek "Causal inference in Statistics: a primer"(https://www.amazon.com/Causal-Inference-Statistics-Judea-Pearl/dp/1119186846) nemen, van Pearl, Glymour en Jewell.
+Als je echt een studieboek wil met sommetjes kun je het beste het boek ["Causal inference in Statistics: a primer"](https://www.amazon.com/Causal-Inference-Statistics-Judea-Pearl/dp/1119186846) nemen, van Pearl, Glymour en Jewell.
 
 # Bronvermelding voorbeelden
 
-- Het boeken / IQ voorbeeld is ontleend aan Freakonomics (blog? boek? welke?)
+- Het boeken / IQ voorbeeld is ontleend aan Freakonomics (PM blog? boek? welke?)
 - Het NBA voorbeeld komt van Twitter, Darren Dahly en Maria Glymour.
 (https://twitter.com/statsepi/status/1117510895637340160)
 
