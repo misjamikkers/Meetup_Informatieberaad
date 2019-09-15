@@ -501,6 +501,10 @@ plot(g)
 
 We hebben op op basis van deze DAG data gesimuleerd. Dat betekent dus dat er in onze data geen verband is tussen het wondermiddel ("Treatment") en de ziektelast.
 
+De variabele $Ziektelast$ is bepaald op basis van de volgende formule:
+
+$$Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + \epsilon$$
+
 Stel nu dat we dit niet weten, en we willen het causale effect van onze $Treatment$ op de $Ziektelast$ schatten. 
 
 Dan blijkt uit de DAG dat de variabele $Zorgkosten$ een collider is, die we niet mee moeten nemen in de analyse.
@@ -510,10 +514,7 @@ Met behulp van machine learning (ML) kunnen we een causaal effect per persoon sc
 Dat kunnen we doen met behulp van het volgende stappenplan:
 
 1. Fit een Random Forest model op de data
-2. Voorspel met het model alle uitkomsten als 
-    - Treatment = 0
-    - Treatment = 1
-3. Bereken het treatment effect als het verschil tussen de Ziektelast wanneer de Treatment 1 is en de Ziektelast wanneer de Treatment 0 is.
+2. Bepaal het gemiddelde treatment effect met behulp van generalized random forests (grf)
 
 We doorlopen deze procedure 2 keer:
 
@@ -595,60 +596,9 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) +
 
 Dat we het verkeerde model kiezen als we het model selecteren op basis van voorspelkracht blijkt uit de onderstaande grafiek:
 
-We hebben onze data zo gesimuleerd dat er geen verband bestast tussen onze $Treatment$ en de $Ziektelast$. Het "goede model" schat het door ons bepaalde nul-effect vrij precies. Het "verkeerde" model daarentegen laat ten onrechte zien dat onze $Treatment$ de $Ziektelast$ verlaagt.
-
-```{r}
-set.seed(123)
-
-# Maak testdata aan
-d1a <- d1 %>%
-  select(-Treatment) %>%
-  mutate(Treatment = 0) %>%
-  select(Ziektelast, Treatment, Zorgkosten, everything()) 
+We hebben onze data zo gesimuleerd dat er geen verband bestast tussen onze $Treatment$ en de $Ziektelast$. Het "goede model" schat het door ons bepaalde nul-effect. Het "verkeerde" model daarentegen laat ten onrechte zien dat onze $Treatment$ de $Ziektelast$ verlaagt.
 
 
-d1b <- d1 %>%
-  select(-Treatment) %>%
-  mutate(Treatment = 1) %>%
-  select(Ziektelast, Treatment, Zorgkosten, everything())
-
-
-# Voorspel waarden met model alle variabelen
-d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
-  mutate(T1 = predict(rf_fit_all, newdata= d1b)) %>%
-  mutate(TE = T1 - T0)
-
-
-d2a <- d2 %>%
-  summarise(ATE = mean(TE), Sd = sd(TE)) %>%
-  mutate(Upper = ATE + 1.96 * Sd) %>%
-  mutate(Lower = ATE - 1.96 * Sd) %>%
-  mutate(Model = as.factor("Model met zorgkosten"))
-
-
-d3 <- data.frame(T0a = predict(rf_fit, newdata = d1a)) %>%
-  mutate(T1a = predict(rf_fit, newdata = d1b)) %>%
-  mutate(TEa = T1a - T0a)
-
-d3a <- d3 %>%
-  summarise(ATE = mean(TEa), Sd = sd(TEa)) %>%
-  mutate(Upper = ATE + 1.96 * Sd) %>%
-  mutate(Lower = ATE - 1.96 * Sd) %>%
-  mutate(Model = as.factor("Model zonder zorgkosten"))
-
-
-d4 <- rbind(d2a, d3a)
-
-ggplot(data = d4, aes(x = Model, y = ATE)) +
-    geom_hline(yintercept = 0, col = "gray") +
-  geom_point() +
-  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
-  xlab("") +
-  ylab("Gemiddeld Interventie Effect") +
-  ylim(-1,1) +
-  theme_minimal() +
-  coord_flip()
-```
 
 ```{r}
 
@@ -661,48 +611,84 @@ Ziektelast = d1$Ziektelast
 X = as.matrix(d1[,-(1:2)])
 
 Y.forest <- regression_forest(X, Ziektelast)
-Y.hat = predict(Y.forest)$predictions
-T.forest = regression_forest(X, Treatment)
-W.hat = predict(T.forest)$predictions
+Y.hat <- predict(Y.forest)$predictions
+T.forest <- regression_forest(X, Treatment)
+W.hat <- predict(T.forest)$predictions
 
-cf.raw = causal_forest(X, Ziektelast, Treatment,
+cf.raw <- causal_forest(X, Ziektelast, Treatment,
                        Y.hat = Y.hat, W.hat = W.hat)
-varimp = variable_importance(cf.raw)
-selected.idx = which(varimp > mean(varimp))
+varimp <- variable_importance(cf.raw)
+selected.idx <- which(varimp > mean(varimp))
 
-cf = causal_forest(X[,selected.idx], Ziektelast, Treatment,
+cf <- causal_forest(X[,selected.idx], Ziektelast, Treatment,
                    Y.hat = Y.hat, W.hat = W.hat,
                    tune.parameters = TRUE)
-tau.hat = predict(cf)$predictions
 
-ATE = average_treatment_effect(cf)
-paste("95% CI for the ATE:", round(ATE[1], 3),
-      "+/-", round(qnorm(0.975) * ATE[2], 3))
+
+
+ATE <- average_treatment_effect(cf)
+
+
+Effect_0 <- as.data.frame(ATE[1]) %>%
+  rename(Effect = `ATE[1]`) %>%
+  mutate(Upper = Effect + 1.96 * ATE[2]) %>%
+  mutate(Lower = Effect - 1.96 * ATE[2]) %>%
+  mutate(Model = as.factor("Model met zorgkosten"))
 
 ```
+
+
 ```{r}
+
+## Goede model
+
 Treatment <- d1$Treatment
 Ziektelast = d1$Ziektelast
-X = as.matrix(d1[,-(1:3)])
+X <- as.matrix(d1[,-(1:3)])
 
 Y.forest <- regression_forest(X, Ziektelast)
-Y.hat = predict(Y.forest)$predictions
-T.forest = regression_forest(X, Treatment)
-W.hat = predict(T.forest)$predictions
+Y.hat <- predict(Y.forest)$predictions
+T.forest <- regression_forest(X, Treatment)
+W.hat <- predict(T.forest)$predictions
 
-cf.raw = causal_forest(X, Ziektelast, Treatment,
+cf.raw_1 <- causal_forest(X, Ziektelast, Treatment,
                        Y.hat = Y.hat, W.hat = W.hat)
-varimp = variable_importance(cf.raw)
-selected.idx = which(varimp > mean(varimp))
+varimp_1 = variable_importance(cf.raw_1)
+selected.idx_1 = which(varimp_1 > mean(varimp_1))
 
-cf = causal_forest(X[,selected.idx], Ziektelast, Treatment,
+cf_1 = causal_forest(X[,selected.idx_1], Ziektelast, Treatment,
                    Y.hat = Y.hat, W.hat = W.hat,
                    tune.parameters = TRUE)
-tau.hat = predict(cf)$predictions
 
-ATE = average_treatment_effect(cf)
-paste("95% CI for the ATE:", round(ATE[1], 3),
-      "+/-", round(qnorm(0.975) * ATE[2], 3))
+ATE_1 <- average_treatment_effect(cf_1)
+
+
+
+Effect_1 <- as.data.frame(ATE_1[1]) %>%
+  rename(Effect = `ATE_1[1]`) %>%
+  mutate(Upper = Effect + 1.96 * ATE_1[2]) %>%
+  mutate(Lower = Effect - 1.96 * ATE_1[2]) %>%
+  mutate(Model = as.factor("Model zonder zorgkosten"))
+
+
+
+```
+
+
+```{r}
+## Combine and make graph
+
+d4 <- rbind(Effect_0, Effect_1)
+
+ggplot(data = d4, aes(x = Model, y = Effect)) +
+    geom_hline(yintercept = 0, col = "gray") +
+  geom_point() +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
+  xlab("") +
+  ylab("Gemiddeld Interventie Effect") +
+  ylim(-1,1) +
+  theme_minimal() +
+  coord_flip()
 
 
 ```
@@ -725,5 +711,8 @@ Als je echt een studieboek wil met sommetjes kun je het beste het boek ["Causal 
 
 - Het boeken / IQ voorbeeld is ontleend aan het boek [Freakonomics](https://www.amazon.com/Freakonomics-Economist-Explores-Hidden-Everything/dp/0060731338) door Levitt en Dubner.
 - Het NBA voorbeeld komt van [Twitter](https://twitter.com/statsepi/status/1117510895637340160), Darren Dahly en Maria Glymour.
+- Voor het bepalen van het treatment effect in het laaste voorbeeld hebben Generalized Random Forests gebruikt. Zie [Athey, Tibshirani en Wager(2018)](https://arxiv.org/pdf/1610.01271.pdf). De gebruike code is ontleend aan [Athey and Wager (2019)](https://arxiv.org/pdf/1902.07409.pdf). Het is overigens mogelijk om heterogene treatment effecten te schatten. Dat hebben wij in het kader van dit voorbeeld niet gedaan.
+
+
 
 
