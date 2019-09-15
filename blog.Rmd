@@ -666,7 +666,7 @@ Als je echt een studieboek wil met sommetjes kun je het beste het boek ["Causal 
 
 # Bronvermelding voorbeelden
 
-- Het boeken / IQ voorbeeld is ontleend aan Freakonomics (PM blog? boek? welke?)
-- Het NBA voorbeeld komt van Twitter, Darren Dahly en Maria Glymour.
-(https://twitter.com/statsepi/status/1117510895637340160)
+- Het boeken / IQ voorbeeld is ontleend aan het boek [Freakonomics](https://www.amazon.com/Freakonomics-Economist-Explores-Hidden-Everything/dp/0060731338) door Levitt en Dubner.
+- Het NBA voorbeeld komt van [Twitter](https://twitter.com/statsepi/status/1117510895637340160), Darren Dahly en Maria Glymour.
+
 
