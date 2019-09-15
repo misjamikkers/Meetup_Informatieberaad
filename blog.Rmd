@@ -484,11 +484,9 @@ In dit voorbeeld gaan we uit van de volgende DAG.
 We hebben een aantal variabelen $V_i, 1 \leq i \leq 8$ (Zoals bijvoorbeeld leeftijd, chronische ziekten etc.) die een invloed hebben op de ziektelast die mensen ondervinden. 
 Deze ziektelast heeft weer een invloed op de zorgkosten die mensen maken.
 
-Tenslotte is er een interventie $T$. Deze interventie is heel duur (en heeft daarom een invloed op de zorgkosten). Deze interventie heeft geen invloed op de ziektelast.
+Tenslotte is er een interventie $T$, het zogeheten "wondermiddel". Deze interventie is heel duur (en heeft daarom een invloed op de zorgkosten). Deze interventie heeft ondanks zijn hoge prijs, geen invloed op de ziektelast.
 
 ```{r}
-
-
 g <- dagitty('dag {
     Zorgkosten [pos="1,0"]
     Treatment [pos="0,1"]
@@ -502,14 +500,15 @@ V_i -> Ziektelast -> Zorgkosten <- Treatment
 
 }')
 plot(g)
-
 ```
 
-We hebben op op basis van deze DAG data gesmimuleerd. Dat betekent dus dat er in onze data geen verband is tussen het wondermiddel ("Treatment") en de ziektelast.
+We hebben op op basis van deze DAG data gesimuleerd. Dat betekent dus dat er in onze data geen verband is tussen het wondermiddel ("Treatment") en de ziektelast.
 
-Uit de DAG blijkt verder dat de variabele $Zorgkosten$ een collider is en niet zou moeten worden meegnomen in een analyse waarin we het causale effect van onze $Treatment$ op de $Ziektelast$ willen schatten.
+Stel nu dat we dit niet weten, en we willen het causale effect van onze $Treatment$ op de $Ziektelast$ schatten. 
 
-Met behulp van machine learning kunnen we een causaal effect per persoon schatten. We gebruiken in dit geval het [Random Forest Algoritme](https://en.wikipedia.org/wiki/Random_forest), omdat Random Forest een populair algortime is.
+Dan blijkt uit de DAG dat de variabele $Zorgkosten$ een collider is, die we niet mee moeten nemen in de analyse.
+
+Met behulp van machine learning (ML) kunnen we een causaal effect per persoon schatten. We gebruiken in dit geval het [Random Forest Algoritme](https://en.wikipedia.org/wiki/Random_forest), omdat Random Forest een populair ML algoritme is.
 
 Dat kunnen we doen met behulp van het volgende stappenplan:
 
@@ -531,17 +530,17 @@ In deze tabel zien we een samenvatting van onze dataset.
 
 
 ```{r, results = 'asis'}
-
 set.seed(123)
 
-X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, ncol = 8)
+X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), 
+            nrow = 1000, ncol = 8)
 
 
 d1 <- as.data.frame(X) %>%
-mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-select(Ziektelast, Treatment, Zorgkosten, everything())
+  mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
+  mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  select(Ziektelast, Treatment, Zorgkosten, everything())
 
 
 
@@ -550,10 +549,10 @@ stargazer(d1, type= "html",  header = FALSE)
 ```
 
 
-&nbsp;
+<!-- &nbsp; -->
 
 
-## Voorspellingen Random Forest
+## Voorspelkracht Random Forest
 
 Als we onze schattingen doen, dan kunnen we eerst kijken naar de voorspelkracht van de modellen. Daarvoor gebruiken we [$R^2$](https://www.investopedia.com/terms/r/r-squared.asp). 
 
@@ -596,14 +595,13 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) +
 
 ```
 
-## Schatting van het treatment effect
+## Schatting van het effect van de interventie
 
-Dat we het verkeerde model kiezen als we het model selecteren op basis van voorspelkracht blijkt uit de onderstaande grafiek.
+Dat we het verkeerde model kiezen als we het model selecteren op basis van voorspelkracht blijkt uit de onderstaande grafiek:
 
 We hebben onze data zo gesimuleerd dat er geen verband bestast tussen onze $Treatment$ en de $Ziektelast$. Het "goede model" schat het door ons bepaalde nul-effect vrij precies. Het "verkeerde" model daarentegen laat ten onrechte zien dat onze $Treatment$ de $Ziektelast$ verlaagt.
 
 ```{r}
-
 set.seed(123)
 
 # Maak testdata aan
@@ -620,7 +618,7 @@ d1b <- d1 %>%
   select(Ziektelast, Treatment, Zorgkosten, everything())
 
 
-# Voorspel waarden met model alle variabeblen
+# Voorspel waarden met model alle variabelen
 
 
 d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
@@ -655,107 +653,10 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
   ylab("Gemiddeld Interventie Effect") +
   ylim(-1,1) +
   theme_minimal() +
+  geom_hline(yintercept = 0, col = "gray") +
   coord_flip()
-
-
 ```
 
-
-```{r}
-# Double machine learning
-
-set.seed(123)
-
-# Goede Model
-
-
-z <- as.matrix(d1 %>%
-  select(- Ziektelast, - Treatment, - Zorgkosten))
-
-d <- as.matrix(d1 %>%
-  select(Treatment))
-
-y <- as.matrix(d1 %>%
-  select(Ziektelast))
-
-I <- sort(sample(1: nrow(d1), nrow(d1)/2)) # main
-IC <- setdiff(1:nrow(d1), I)
-
-# voorspelling y ~ z
-
-model1 <- randomForest(z[I, ], y[I])
-model2 <- randomForest(z[IC, ], y[IC])
-
-G1 <- predict(model1, z[IC,])
-G2 <- predict(model2, z[I,])
-
-# voorspelling y ~ d
-
-modeld1 <- randomForest(z[I, ], as.factor(d[I]))
-modeld2 <- randomForest(z[IC, ], as.factor(d[IC]))
-
-M1 <- predict(modeld1, z[IC,])
-M2 <- predict(modeld2, z[I,])
-
-# Bereken residuals  van het model
-
-V1 <- d[IC] - as.numeric(as.character(M1))
-V2 <- d[I] - as.numeric(as.character(M2))
-
-# Bereken treatment effect
-
-theta_1 <- mean(V1 * (y[IC] - G1))/ mean(V1 * d[IC])
-theta_2 <- mean(V2 * (y[I] - G2))/ mean(V2 * d[I])
-
-theta_cf <- mean(c(theta_1, theta_2))
-
-
-# Foute  Model
-
-
-z_1 <- as.matrix(d1 %>%
-  select(- Ziektelast, - Treatment))
-
-d_1 <- as.matrix(d1 %>%
-  select(Treatment))
-
-y_1 <- as.matrix(d1 %>%
-  select(Ziektelast))
-
-I <- sort(sample(1: nrow(d1), nrow(d1)/2)) # main
-IC <- setdiff(1:nrow(d1), I)
-
-# voorspelling y ~ z
-
-model1_1 <- randomForest(z_1[I, ], y_1[I])
-model2_1 <- randomForest(z_1[IC, ], y_1[IC])
-
-G1_1 <- predict(model1_1, z_1[IC,])
-G2_1 <- predict(model2_1, z_1[I,])
-
-# voorspelling y ~ d
-
-modeld1_1 <- randomForest(z_1[I, ], as.factor(d_1[I]))
-modeld2_1 <- randomForest(z_1[IC, ], as.factor(d_1[IC]))
-
-M1_1 <- predict(modeld1_1, z_1[IC,])
-M2_1 <- predict(modeld2_1, z_1[I,])
-
-# Bereken residuals  van het model
-
-V1_1 <- d_1[IC] - as.numeric(as.character(M1_1))
-V2_1 <- d_1[I] - as.numeric(as.character(M2_1))
-
-# Bereken treatment effect
-
-theta_1_1 <- mean(V1_1 * (y_1[IC] - G1_1))/ mean(V1_1 * d_1[IC])
-theta_2_1 <- mean(V2_1 * (y_1[I] - G2_1))/ mean(V2_1 * d_1[I])
-
-theta_cf_1 <- mean(c(theta_1_1, theta_2_1))
-
-
-
-```
 
 
 
@@ -763,12 +664,17 @@ theta_cf_1 <- mean(c(theta_1_1, theta_2_1))
 
 In dit blog hebben we laten zien dat het essentieel is om een causaal model te maken als je causale effecten wilt schatten. Zeker wanneer er machine learning technieken worden gebruikt, is de verleiding groot om zoveel mogelijk variabelen mee te nemen. In dit blog hebben we laten zien dat het toegeven aan deze verleiding tot verkeerde conclusies kan leiden.
 
-# Literatuur
+# Meer weten?
 
-- even checken hoe we dat goed krijgen
-- Book of why
-- Elwert
-- Causality primer van pearl
-- voorbeeld boeken komt is ontleend aan Freakanomics
-- ik weet niet meer waar ons voorbeeld van de NBA vandaan komt
+Hopelijk heb je nu de smaak te pakken en wil je meer weten over causale modellen en hoe je hiermee causale effecten kunt schatten op basis van data. Een redelijke compacte, maar toch toegankelijke introductie is een hoofdstuk van Felix Elwert, [Graphical Causal Models](http://www.ssc.wisc.edu/soc/faculty/pages/docs/elwert/Elwert%202013.pdf). 
+
+Een uitgebreidere introductie is het inmiddels zeer populaire ["Book of Why"](http://bayes.cs.ucla.edu/WHY/) van Judea Pearl en Dana Mackenzie.
+
+Als je echt een studieboek wil met sommetjes kun je het beste het boek "Causal inference in Statistics: a primer"(https://www.amazon.com/Causal-Inference-Statistics-Judea-Pearl/dp/1119186846) nemen, van Pearl, Glymour en Jewell.
+
+# Bronvermelding voorbeelden
+
+- Het boeken / IQ voorbeeld is ontleend aan Freakonomics (blog? boek? welke?)
+- Het NBA voorbeeld komt van Twitter, Darren Dahly en Maria Glymour.
+(https://twitter.com/statsepi/status/1117510895637340160)
 
