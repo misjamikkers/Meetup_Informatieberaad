@@ -28,6 +28,7 @@ library(stargazer)
 library(knitr)
 library(ggrepel)
 library(randomForest)
+library(grf)
 ```
 
 
@@ -649,6 +650,62 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
   coord_flip()
 ```
 
+```{r}
+
+# We schatten het interventie-effect met grf (causal forest)
+
+## Verkeerde model
+
+Treatment <- d1$Treatment
+Ziektelast = d1$Ziektelast
+X = as.matrix(d1[,-(1:2)])
+
+Y.forest <- regression_forest(X, Ziektelast)
+Y.hat = predict(Y.forest)$predictions
+T.forest = regression_forest(X, Treatment)
+W.hat = predict(T.forest)$predictions
+
+cf.raw = causal_forest(X, Ziektelast, Treatment,
+                       Y.hat = Y.hat, W.hat = W.hat)
+varimp = variable_importance(cf.raw)
+selected.idx = which(varimp > mean(varimp))
+
+cf = causal_forest(X[,selected.idx], Ziektelast, Treatment,
+                   Y.hat = Y.hat, W.hat = W.hat,
+                   tune.parameters = TRUE)
+tau.hat = predict(cf)$predictions
+
+ATE = average_treatment_effect(cf)
+paste("95% CI for the ATE:", round(ATE[1], 3),
+      "+/-", round(qnorm(0.975) * ATE[2], 3))
+
+```
+```{r}
+Treatment <- d1$Treatment
+Ziektelast = d1$Ziektelast
+X = as.matrix(d1[,-(1:3)])
+
+Y.forest <- regression_forest(X, Ziektelast)
+Y.hat = predict(Y.forest)$predictions
+T.forest = regression_forest(X, Treatment)
+W.hat = predict(T.forest)$predictions
+
+cf.raw = causal_forest(X, Ziektelast, Treatment,
+                       Y.hat = Y.hat, W.hat = W.hat)
+varimp = variable_importance(cf.raw)
+selected.idx = which(varimp > mean(varimp))
+
+cf = causal_forest(X[,selected.idx], Ziektelast, Treatment,
+                   Y.hat = Y.hat, W.hat = W.hat,
+                   tune.parameters = TRUE)
+tau.hat = predict(cf)$predictions
+
+ATE = average_treatment_effect(cf)
+paste("95% CI for the ATE:", round(ATE[1], 3),
+      "+/-", round(qnorm(0.975) * ATE[2], 3))
+
+
+```
 
 
 
