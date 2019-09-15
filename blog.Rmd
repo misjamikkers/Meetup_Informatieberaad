@@ -269,16 +269,13 @@ Wanneer we de "collider" niet meenemen in onze analyse, dan vinden we in onze da
 
 ```{r}
 set.seed(1)
-Lengte <- rnorm(n = 500, mean = 1.8, sd = 0.15)
 
-NBA <- as.data.frame(Lengte) %>%
-  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>%
+NBA <- data.frame(Lengte = rnorm(n = 500, mean = 1.8, sd = 0.15)) %>%
+  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>% # niet gecorreleerd
   mutate(Lengte_stand = Lengte/max(Lengte)) %>%
   mutate(Snelheid_stand = Snelheid/max(Snelheid)) %>%
-  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0)))
+  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0))) # selectie
   
-
-
 ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
   geom_point() +
   geom_smooth(method = "lm", aes(group = 1)) +
@@ -291,6 +288,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
 
 Maar wanneer we de professionele status van onze basketballers wel meenemen in de analyse, vinden we plotseling wel een verband!
 
+Merk op dat er **selectie** plaats vindt: We **selecteren** de NBA-ers (of juist de niet-NBA-ers), en na selectie ontstaat er een correlatie die er voorheen niet was.
 
 
 ```{r}
@@ -306,7 +304,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
   theme_minimal()
 ```
 
-Ook als je een regressies zou doen, dan blijkt dat 
+Ook als je een regressie zou doen, dan blijkt dat 
 
 - geen verband is tussen lengte en snelheid
 - maar er wel een verband ontstaat zodra je toevoegt dat mensen in de NBA spelen.
@@ -322,19 +320,18 @@ stargazer(regNBA, regNBA1, header = FALSE, type = "html")
 
 <!-- &nbsp; -->
 
-Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen. In termen van de DAG zeggen we dat een collider de informatiestroom tussen de variabelen $Lengte$ en $Snelheid$ blokkeert. Door deze variabele mee te nemen in de analyse, deblokkeren (openen) we het pad. 
+Dus: je creert een correlatie waar die er niet is door een collider variabele in je analyse mee te nemen. In termen van de DAG zeggen we dat een collider de informatiestroom tussen de variabelen $Lengte$ en $Snelheid$ blokkeert. Door deze variabele mee te nemen in de analyse, deblokkeren (openen) we het pad, en ontstaan er correlaties die niet-causaal zijn.
 
 We moeten colliders dus nooit meenemen in analyses. Wanneer we dat wel doen, dan trekken we ten onrechte de conclusie dat er een causaal verband bestaat tussen in dit geval Lengte en Snelheid bij basketballers.
 
-<!-- hier zie je dat de correlatie ook aanwezig is in de groep niet NBA-ers. Dat past niet helemaal bij het verhaal -->
+<!-- Conditioning on the collider via regression analysis, stratification, experimental design, or sample selection based on values of the collider create a non-causal association between X and Y (Berkson's paradox, 1938, Mayo Clinic, epi!!!). -->
 
-<!--TOT HIER -->
 
 ## Mediator
 
 De derde basisvorm wordt de mediator genoemd. In dit geval beinvloedt 1 variabele een tweede variabele die op haar beurt een derde variable beinvloedt.
 
-In het volgende gestileerde voorbeeld zijn we geinteresseerd in de causale relatie tussen het budget van bijvoorbeeld een professioneel voetbalteam de de punten die dat team haalt.
+In het volgende gestileerde voorbeeld zijn we geinteresseerd in de causale relatie tussen het budget van bijvoorbeeld een professioneel voetbalteam en de punten die dat team haalt.
 
 Omdat je (althans: voor zover wij weten) geen punten kunt kopen, moet een eventuele causale relatie door een tweede variable lopen. In dit geval zegt de DAG dat teams met een hoger budget zich betere spelers kunnen veroorloven. En een team met betere spelers behaalt meer punten.
 
@@ -373,17 +370,6 @@ Vb <- as.data.frame(Budgetten) %>%
   mutate(Teamsterkte_groep = as.factor(ntile(Teamsterkte, 10)))
   
 
-
-
-
-
-
-
-
-
-
-
-
 ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
   geom_point() + 
   geom_smooth(method = "lm") +
@@ -391,7 +377,7 @@ ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
 
 ```
 
-Wanneer we de variabele $Teamsterkte$ zouden toevoegen aan onze analyse, dan verdwijnt de correlatie. Dit is vergelijkbaar wat er gebeurt met de confouder.
+Wanneer we de variabele $Teamsterkte$ zouden toevoegen aan onze analyse, dan verdwijnt de correlatie. Dit is vergelijkbaar wat er gebeurt met de confounder.
 
 
 ```{r}
@@ -411,23 +397,22 @@ stargazer(regvb, regvb1, header = FALSE, type = "html")
 
 ```
 
-&nbsp;
+<!-- &nbsp; -->
 
 Maar in dit geval willen we de variabele $Teamsterkte$ niet meenemen: We willen weten of meer budget leidt tot meer punten. Dat wil zeggen dat benieuwd zijn naar het aantal punten in het geval we het budget van het voetbalteam verhogen of verlagen. Om een antwoord op die causale vraag te kunnen geven, kan de mediator niet worden meegenomen in de analyse.
 
+<!-- Waarom mag / kan dit niet?  -->
 
 # Voorbeeld van een meer complexe DAG
 
 In haar afstudeerscriptie voor haar studie economie heeft Mijntje Jansen in 2019 onderzoek gedaan naar de invloed van de samenstelling van het bestuur in de verpleeghuiszorg qua geslacht op de beleefde kwaliteit van zorg. Om deze vraag te kunnen beantwoorden heeft ze de onderstaande DAG gemaakt.
 
-Deze DAG laat zien dat DAG's behoorlijk complex kunnen zijn. Het is bij meer complexe DAG's ingewikkeld om te bepalen welke variabelen nodig zijn om causale verbanden te kunnen indentificeren. Dit wordt ook wel de "minimal adjustment set" genoemd. De R-package `dagitty` bepaalde de minimum adjustment set geautomatiseerd.
+Deze DAG laat zien dat DAG's behoorlijk complex kunnen zijn. Het is bij meer complexe DAG's ingewikkeld om te bepalen welke variabelen nodig zijn om causale verbanden te kunnen identificeren. Dit wordt ook wel de "minimal adjustment set" genoemd. De R-package `dagitty` bepaalde de minimum adjustment set geautomatiseerd.
 
-Een tweede reden om deze DAG hier te laten zien is dat dit voorbeeld illustreert dat zelfs complexe modellen zoals hier zijn weergegeven goed kunnen worden besproken met andere -niet noodzakelijkerwijs wiskundig geschoolde- experts. In dit geval heeft Mijntje haar model besproken met en aangepast na gesprekken met bestuurders van verpleeghuisinstellingen.
+Een tweede reden om deze DAG hier te laten zien is dat dit voorbeeld illustreert dat zelfs complexe modellen zoals hier zijn weergegeven goed kunnen worden besproken met andere -niet noodzakelijkerwijs wiskundig geschoolde- experts. In dit geval heeft Mijntje haar model besproken met bestuurders van verpleeghuisinstellingen, en op basis van deze gesprekken aangepast.
 
 
 ```{r}
-
-
 thesismodel10 <- dagitty('dag {
   GSB [pos="0,5"]
   FTE [pos="1,7"]
@@ -485,13 +470,13 @@ thesismodel10 <- dagitty('dag {
 plot(thesismodel10)
 ```
 
+<!-- Hier evt discussie over uitbreiden IQ - boeken DAG -->
 
-
-
+<!-- TOT HIER -->
 
 # Machine learning en causaliteit
 
-Nu we de basisbeginselen van variabele selectie en causaliteit hebben besproken, we will graag een voorbeeld laten zien hoe er met machine learning causale effecten geschat kunnen worden. We laten zien dat het causale model erg belangrijk is voor de conclusies.
+Nu we de basisbeginselen van variabele selectie en causaliteit hebben besproken, willen we graag een voorbeeld laten zien hoe er met machine learning causale effecten geschat kunnen worden. We laten zien dat het causale model erg belangrijk is voor de conclusies.
 
 In dit voorbeeld gaan we uit van de volgende DAG.
 
