@@ -26,6 +26,7 @@ library(caret)
 library(knitr)
 library(ranger)
 library(stargazer)
+library(grf)
 
 ```
 
@@ -87,7 +88,6 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
   xlab("Aantal boeken dat ouders bezit") +
   ylab("Cito scores van hun kinderen") +
   theme_minimal()
-
 
 
 ```
@@ -196,16 +196,13 @@ plot(NBAdag)
 ```{r}
 
 set.seed(1)
-Lengte <- rnorm(n = 500, mean = 1.8, sd = 0.15)
 
-NBA <- as.data.frame(Lengte) %>%
-  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>%
+NBA <- data.frame(Lengte = rnorm(n = 500, mean = 1.8, sd = 0.15)) %>%
+  mutate(Snelheid = rnorm(n = 500, mean = 10, sd = 3)) %>% # niet gecorreleerd
   mutate(Lengte_stand = Lengte/max(Lengte)) %>%
   mutate(Snelheid_stand = Snelheid/max(Snelheid)) %>%
-  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0)))
+  mutate(NBA = as.factor(ifelse(Lengte_stand + Snelheid_stand > 1.3,  1 , 0))) # selectie
   
-
-
 ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
   geom_point() +
   geom_smooth(method = "lm", aes(group = 1)) +
@@ -222,7 +219,6 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
 
 ```{r}
 
-
 ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
   geom_point() +
   geom_smooth(method = "lm", aes(fill = NBA) , alpha = 0.1) +
@@ -231,6 +227,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
    xlab("Lengte in meters") +
   ylab("Snelheid in km per uur") +
   theme_minimal()
+
 ```
 
 
@@ -251,6 +248,7 @@ Budget -> Teamsterkte -> Punten
 
 plot(Voetbaldag)
 
+
 ```
 
 ## Budgetten en punten
@@ -266,17 +264,6 @@ Vb <- as.data.frame(Budgetten) %>%
   select(- Hulppunten) %>%
   mutate(Teamsterkte_groep = as.factor(ntile(Teamsterkte, 10)))
   
-
-
-
-
-
-
-
-
-
-
-
 
 ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
   geom_point() + 
@@ -388,11 +375,12 @@ plot(g)
 
 ## Aanpak
 
+De variabele $Ziektelast$ is bepaald op basis van de volgende formule:
+
+$$Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + \epsilon$$
+
 1. Fit een Random Forest model op de data
-2. Voorspel met het model alle uitkomsten als 
-    - Treatment = 0
-    - Treatment = 1
-3. Bereken het treatment effect als het verschil tussen de Ziektelast wanneer de Treatment 1 is en de Ziektelast wanneer de Treatment 0 is.
+2. Bepaal het gemiddelde treatment effect met behulp van generalized random forests (grf)
 
 We doorlopen deze procedure 2 keer:
 
@@ -408,14 +396,19 @@ b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus d
 
 set.seed(123)
 
-X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), nrow = 1000, ncol = 8)
+X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE), 
+            nrow = 1000, ncol = 8)
 
 
 d1 <- as.data.frame(X) %>%
-mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
-select(Ziektelast, Treatment, Zorgkosten, everything())
+  mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
+  mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  select(Ziektelast, Treatment, Zorgkosten, everything())
+
+
+
+stargazer(d1, type= "html",  header = FALSE)
 
 
 
@@ -456,11 +449,11 @@ dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
   mutate(`Model zonder zorgkosten` = rf_fit$resample$Rsquared) %>%
   gather(Model, Rsquared)
 
-ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) + 
+ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) + 
   geom_boxplot(width = 0.1) +
-  ylab("R kwardraat") + 
+  ylab("R kwadraat (%)") + 
   xlab(" ") +
-  ylim(0.5,1) +
+  ylim(50, 100) +
   theme_minimal() + 
   coord_flip()
 
@@ -471,51 +464,86 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared)) +
 
 ```{r}
 
-set.seed(123)
+# We schatten het interventie-effect met grf (causal forest)
 
-# Maak testdata aan
+## Verkeerde model
 
-d1a <- d1 %>%
-  select(-Treatment) %>%
-  mutate(Treatment = 0) %>%
-  select(Ziektelast, Treatment, Zorgkosten, everything()) 
+Treatment <- d1$Treatment
+Ziektelast = d1$Ziektelast
+X = as.matrix(d1[,-(1:2)])
+
+Y.forest <- regression_forest(X, Ziektelast)
+Y.hat <- predict(Y.forest)$predictions
+T.forest <- regression_forest(X, Treatment)
+W.hat <- predict(T.forest)$predictions
+
+cf.raw <- causal_forest(X, Ziektelast, Treatment,
+                       Y.hat = Y.hat, W.hat = W.hat)
+varimp <- variable_importance(cf.raw)
+selected.idx <- which(varimp > mean(varimp))
+
+cf <- causal_forest(X[,selected.idx], Ziektelast, Treatment,
+                   Y.hat = Y.hat, W.hat = W.hat,
+                   tune.parameters = TRUE)
 
 
-d1b <- d1 %>%
-  select(-Treatment) %>%
-  mutate(Treatment = 1) %>%
-  select(Ziektelast, Treatment, Zorgkosten, everything())
+
+ATE <- average_treatment_effect(cf)
 
 
-# Voorspel waarden met model alle variabeblen
-
-
-d2 <- data.frame(T0 = predict(rf_fit_all, newdata= d1a)) %>%
-  mutate(T1 = predict(rf_fit_all, newdata= d1b)) %>%
-  mutate(TE = T1 - T0)
-
-
-d2a <- d2 %>%
-  summarise(ATE = mean(TE), Sd = sd(TE)) %>%
-  mutate(Upper = ATE + 1.96 * Sd) %>%
-  mutate(Lower = ATE - 1.96 * Sd) %>%
+Effect_0 <- as.data.frame(ATE[1]) %>%
+  rename(Effect = `ATE[1]`) %>%
+  mutate(Upper = Effect + 1.96 * ATE[2]) %>%
+  mutate(Lower = Effect - 1.96 * ATE[2]) %>%
   mutate(Model = as.factor("Model met zorgkosten"))
 
+```
 
-d3 <- data.frame(T0a = predict(rf_fit, newdata = d1a)) %>%
-  mutate(T1a = predict(rf_fit, newdata = d1b)) %>%
-  mutate(TEa = T1a - T0a)
 
-d3a <- d3 %>%
-  summarise(ATE = mean(TEa), Sd = sd(TEa)) %>%
-  mutate(Upper = ATE + 1.96 * Sd) %>%
-  mutate(Lower = ATE - 1.96 * Sd) %>%
+```{r}
+
+## Goede model
+
+Treatment <- d1$Treatment
+Ziektelast = d1$Ziektelast
+X <- as.matrix(d1[,-(1:3)])
+
+Y.forest <- regression_forest(X, Ziektelast)
+Y.hat <- predict(Y.forest)$predictions
+T.forest <- regression_forest(X, Treatment)
+W.hat <- predict(T.forest)$predictions
+
+cf.raw_1 <- causal_forest(X, Ziektelast, Treatment,
+                       Y.hat = Y.hat, W.hat = W.hat)
+varimp_1 = variable_importance(cf.raw_1)
+selected.idx_1 = which(varimp_1 > mean(varimp_1))
+
+cf_1 = causal_forest(X[,selected.idx_1], Ziektelast, Treatment,
+                   Y.hat = Y.hat, W.hat = W.hat,
+                   tune.parameters = TRUE)
+
+ATE_1 <- average_treatment_effect(cf_1)
+
+
+
+Effect_1 <- as.data.frame(ATE_1[1]) %>%
+  rename(Effect = `ATE_1[1]`) %>%
+  mutate(Upper = Effect + 1.96 * ATE_1[2]) %>%
+  mutate(Lower = Effect - 1.96 * ATE_1[2]) %>%
   mutate(Model = as.factor("Model zonder zorgkosten"))
 
 
-d4 <- rbind(d2a, d3a)
 
-ggplot(data = d4, aes(x = Model, y = ATE)) +
+```
+
+
+```{r}
+## Combine and make graph
+
+d4 <- rbind(Effect_0, Effect_1)
+
+ggplot(data = d4, aes(x = Model, y = Effect)) +
+    geom_hline(yintercept = 0, col = "gray") +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
@@ -526,6 +554,7 @@ ggplot(data = d4, aes(x = Model, y = ATE)) +
 
 
 ```
+
 
 # Conclusie
 

@@ -159,7 +159,7 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 In het kader van dit blog definieren we causaliteit als het verschijnsel dat als we een variabele veranderen **in de wereld**, dat dan een andere variabele ook verandert **als gevolg hier**. In het bovenstaande voorbeeld is het aantal boeken geen oorzaak van de CITO-scores. Als we het aantal boeken zouden veranderen, dan verandert de CITO score niet. Het IQ van de ouders is wel een oorzaak van hogere CITO-scores. In dit voorbeeld kunnen wij ons overigens niet voorstellen dat we het IQ van de ouders veranderen. We kunnen wel een counter factual beredeneren: wanneer het IQ van de ouders anders geweest zou zijn, dan zou ook de CITO score anders zijn.
 
-<!-- probleem met dir voorbeeld is dat als je het IQ van de ouder zou veranderen, door ze een lobotomie te geven b.v. het IQ van de kinderen niet zou veranderen. -->
+<!-- probleem met dit voorbeeld is dat als je het IQ van de ouder zou veranderen, door ze een lobotomie te geven b.v. het IQ van de kinderen niet zou veranderen. -->
 <!-- je kan ook zeggen dat IQ ouder niet de oorzaak is, maar het genetisch materiaal van de ouders, en het gedrag van de ouders in het verleden (nature en nurture).  IQ ouder is dan een gevolg van genetisch materiaal, net als het genetisch materiaal kind een gevolg is van genetisch mat. ouder.-->
 
 # Grafische Causale Modellen (in de volksmond: "DAG's")
