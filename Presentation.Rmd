@@ -1,5 +1,5 @@
 ---
-title: "Een onnodig gecompliceerde titel"
+title: "Causaliteit en Machine learning"
 author: "Misja Mikkers & Gertjan Verhoeven"
 institute: "Nederlandse Zorgautoriteit (NZa) & Tilburg University"
 date: "31 oktober 2018"
@@ -377,7 +377,12 @@ plot(g)
 
 De variabele $Ziektelast$ is bepaald op basis van de volgende formule:
 
-$$Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + \epsilon$$
+\begin{multline*}
+Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + \\
+5 * V5 + 6 * V6*V7)) + \epsilon
+\end{multline*}
+
+\footnotesize{
 
 1. Fit een Random Forest model op de data
 2. Bepaal het gemiddelde treatment effect met behulp van generalized random forests (grf)
@@ -386,11 +391,14 @@ We doorlopen deze procedure 2 keer:
 
 a.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen ("het verkeerde model")
 b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus de collider $Zorgkosten$ ("het goede model")
+}
+
+
 
 
 ## Summary statistics
 
-
+\captionsetup[table]{labelformat=empty}
 
 ```{r, results = 'asis'}
 
@@ -402,13 +410,10 @@ X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE),
 
 d1 <- as.data.frame(X) %>%
   mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-  mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  mutate(Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + 5 * V5 + 6 * V6*V7) + rnorm(n = 1000, mean = 0, sd = 0.1))) %>%
   mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
   select(Ziektelast, Treatment, Zorgkosten, everything())
 
-
-
-stargazer(d1, type= "html",  header = FALSE)
 
 
 

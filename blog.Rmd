@@ -34,9 +34,7 @@ library(grf)
 
 # Inleiding
 
-Het doel van dit blog is om een toegankelijke inleiding te geven over causaliteit en data analyse. Dit blog is geschreven naar aanleiding van een uitnodiging om een workshop te organiseren voor de 7de Meet Up van het Informatieberaad Zorg op 23 september 2019. Het publiek van deze Meet Ups is zeer divers: patiënten, zorgprofessionals, beleidsmakers én leveranciers en inkopers van technische oplossingen voor de zorg zijn bij deze Meet Ups aanwezig.
-
-[Gertjan Verhoeven](https://gsverhoeven.github.io/#about) en ik hebben de presentatie tijdens de Meet Up omgezet naar dit blog.
+Het doel van dit blog is om een toegankelijke inleiding te geven over causaliteit en data analyse. 
 
 Het voorspellen van fenomenen met behulp machine learning is de afgelopen jaren een groot succes gebleken. Grote hoeveelheden data en toegenomen computerkracht hebben geleid tot veel ontwikkelingen en toepassingen op het gebied van voorspellen. Voorbeelden zijn het real time voorspellen van credit card fraude, het systeem van aanbevelingen bij bedrijven als Spotify, Bol, Netflix etc. Deze modellen hebben gemeen dat ze zich richten op het voorspellen van fenomenen, maar niet gericht zijn op causaliteit. Als de wereld verandert, dan vermindert de voorspellende waarde van het model en wordt het model opnieuw "getraind".
 
@@ -102,7 +100,7 @@ Als we begrijpen wat een voorspelling drijft, dan kunnen we we iets doen om het 
 - beleid formuleren
 - een medische ingreep doen
 - meer informatie verschaffen aan mensen
-- etc
+
 
 Om het probleem van het voorspellen op basis van correlaties te illustreren, hebben we een fictieve dataset gemaakt met gegevens CITO-scores van hun kinderen en het aantal boeken dat hun ouders bezit.
 
@@ -503,7 +501,7 @@ We hebben op op basis van deze DAG data gesimuleerd. Dat betekent dus dat er in 
 
 De variabele $Ziektelast$ is bepaald op basis van de volgende formule:
 
-$$Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + \epsilon$$
+$$Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + 5 * V5 + 6 * V6*V7)) + \epsilon$$
 
 Stel nu dat we dit niet weten, en we willen het causale effect van onze $Treatment$ op de $Ziektelast$ schatten. 
 
@@ -526,6 +524,7 @@ b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus d
 
 In deze tabel zien we een samenvatting van onze dataset.
 
+\captionsetup[table]{labelformat=empty}
 
 ```{r, results = 'asis'}
 set.seed(123)
@@ -536,7 +535,7 @@ X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE),
 
 d1 <- as.data.frame(X) %>%
   mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-  mutate(Ziektelast = (1 * V1 + 2 * V2 + 3 * V3 + 4 * V4 + 5 * V5 + 6 * V6)/10000 + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
+  mutate(Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + 5 * V5 + 6 * V6*V7) + rnorm(n = 1000, mean = 0, sd = 0.1))) %>%
   mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
   select(Ziektelast, Treatment, Zorgkosten, everything())
 
@@ -629,6 +628,7 @@ cf <- causal_forest(X[,selected.idx], Ziektelast, Treatment,
 ATE <- average_treatment_effect(cf)
 
 
+
 Effect_0 <- as.data.frame(ATE[1]) %>%
   rename(Effect = `ATE[1]`) %>%
   mutate(Upper = Effect + 1.96 * ATE[2]) %>%
@@ -713,6 +713,10 @@ Als je echt een studieboek wil met sommetjes kun je het beste het boek ["Causal 
 - Het NBA voorbeeld komt van [Twitter](https://twitter.com/statsepi/status/1117510895637340160), Darren Dahly en Maria Glymour.
 - Voor het bepalen van het treatment effect in het laaste voorbeeld hebben Generalized Random Forests gebruikt. Zie [Athey, Tibshirani en Wager(2018)](https://arxiv.org/pdf/1610.01271.pdf). De gebruike code is ontleend aan [Athey and Wager (2019)](https://arxiv.org/pdf/1902.07409.pdf). Het is overigens mogelijk om heterogene treatment effecten te schatten. Dat hebben wij in het kader van dit voorbeeld niet gedaan.
 
+# Aanleiding Blog
 
+Dit blog is geschreven naar aanleiding van een uitnodiging om een workshop te organiseren voor de 7de Meet Up van het Informatieberaad Zorg op 23 september 2019. Het publiek van deze Meet Ups is zeer divers: patiënten, zorgprofessionals, beleidsmakers én leveranciers en inkopers van technische oplossingen voor de zorg zijn bij deze Meet Ups aanwezig.
+
+[Gertjan Verhoeven](https://gsverhoeven.github.io/#about) en ik hebben de presentatie die we tijdens de Meet Up hebben gegeven omgezet naar dit blog.
 
 
