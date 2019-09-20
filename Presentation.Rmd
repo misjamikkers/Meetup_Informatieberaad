@@ -60,7 +60,10 @@ kable(PO)
 
 ```
 
+
+
 # Causaliteit
+
 
 ## Voorspellen versus begrijpen
 
@@ -93,6 +96,10 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
 
 ```
 
+
+
+
+
 ## Voorspellen versus begrijpen
 
 
@@ -112,7 +119,11 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 # DAGS
 
+
+
 ## Basisvormen DAGs
+
+
 
   
 
@@ -153,6 +164,9 @@ ggplot(data = DAG, aes(x = X, y = Y)) +
 
 
 
+
+
+
 ## Confounder
 
 
@@ -170,6 +184,7 @@ Aantal_boeken <- IQ_ouders -> Cito_score
 
 
 plot(citodag)
+
 ```
 
 
@@ -190,6 +205,7 @@ Lengte -> NBA <- Snelheid
 
 
 plot(NBAdag)
+
 ```
 
 ## Veroorzaakt Lengte Snelheid?
@@ -281,6 +297,7 @@ ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
   geom_point() + 
   geom_smooth(method = "lm") +
   theme_minimal()
+
 ```
 
 
@@ -346,6 +363,7 @@ thesismodel10 <- dagitty('dag {
 }')
 
 plot(thesismodel10)
+
 ```
 
 # Machine learning en causaliteit
@@ -430,7 +448,7 @@ stargazer(d1, type= "latex",  header = FALSE, font.size = "tiny")
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
 set.seed(123)
 tr_control <- trainControl(method = "repeatedcv",
                             number = 10,
@@ -474,7 +492,7 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) +
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
 # We schatten het interventie-effect met grf (causal forest)
 
 ## Verkeerde model
@@ -515,7 +533,8 @@ Effect_0 <- as.data.frame(ATE[1]) %>%
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
+
 ## Goede model
 
 Treatment <- d1$Treatment
@@ -583,6 +602,8 @@ ggplot(data = d4, aes(x = Model, y = Effect)) +
 - We hebben laten zien dat dit kan leiden tot misleidende conclusies
 
 # Blog en code
+
+## Blog en code
 
 https://misjamikkers.github.io/post/causaliteit-en-machine-learning/
 
