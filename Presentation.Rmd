@@ -14,7 +14,7 @@ output:
 
 ```{r setup II, include=FALSE, eval=TRUE}
 knitr::opts_chunk$set(eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE)
-#knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+knitr::opts_chunk$set(fig.width= 6, fig.height = 4) 
 ```
 
 
@@ -65,7 +65,7 @@ kable(PO)
 ## Voorspellen versus begrijpen
 
 
-```{r}
+```{r fig.width= 6, fig.height = 4}
 set.seed(123)
 
 N <- 1000
