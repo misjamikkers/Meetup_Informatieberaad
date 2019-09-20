@@ -2,7 +2,7 @@
 title: "Causaliteit en Machine learning"
 author: "Misja Mikkers & Gertjan Verhoeven"
 institute: "Nederlandse Zorgautoriteit (NZa) & Tilburg University"
-date: "31 oktober 2018"
+date: "23 september 2019"
 output:
    beamer_presentation:
     theme: "Goettingen"
@@ -14,6 +14,7 @@ output:
 
 ```{r setup II, include=FALSE, eval=TRUE}
 knitr::opts_chunk$set(eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE)
+#knitr::opts_chunk$set(fig.width=12, fig.height=8) 
 ```
 
 
@@ -47,7 +48,7 @@ X_1 <- c("Man", "Vrouw", "Vrouw", "...")
 
 PO <- as.data.frame(X_1) %>%
   mutate(X_2 =  c("9", "60", "7", "...")) %>%
-  mutate(`...` = c("14", "36", "2", "...")) %>%
+  mutate(X_3 = c("14", "36", "2", "...")) %>%
   mutate(X_i =  c("1", "0", "1", "...")) %>%
   mutate(I = c("0", "1", "1", "...")) %>%
   mutate(Y0 = c("67", "NA", "NA", "...")) %>%
@@ -429,25 +430,30 @@ stargazer(d1, type= "latex",  header = FALSE, font.size = "tiny")
 
 
 ```{r}
-
+fullrun <- 0
 set.seed(123)
 tr_control <- trainControl(method = "repeatedcv",
                             number = 10,
                             repeats = 5)
  
- 
+if(fullrun){
  rf_fit_all <- train(Ziektelast ~ . ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
                  trControl = tr_control)
+ saveRDS(rf_fit_all, "rf_fit_all.rds")
  
  rf_fit <- train(Ziektelast ~ .-Zorgkosten ,
                  data= d1,
                  method = "ranger",
                  importance= "permutation",
                  trControl = tr_control)
- 
+ saveRDS(rf_fit, "rf_fit.rds")
+} else {
+ rf_fit <- readRDS("rf_fit.rds")
+ rf_fit_all <- readRDS("rf_fit_all.rds")
+}
 
 dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
   rename(`Model met zorgkosten`= `rf_fit_all$resample$Rsquared`) %>%
@@ -468,7 +474,7 @@ ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) +
 
 
 ```{r}
-
+fullrun <- 0
 # We schatten het interventie-effect met grf (causal forest)
 
 ## Verkeerde model
@@ -477,19 +483,22 @@ Treatment <- d1$Treatment
 Ziektelast = d1$Ziektelast
 X = as.matrix(d1[,-(1:2)])
 
-Y.forest <- regression_forest(X, Ziektelast)
-Y.hat <- predict(Y.forest)$predictions
-T.forest <- regression_forest(X, Treatment)
-W.hat <- predict(T.forest)$predictions
-
-cf.raw <- causal_forest(X, Ziektelast, Treatment,
-                       Y.hat = Y.hat, W.hat = W.hat)
-varimp <- variable_importance(cf.raw)
-selected.idx <- which(varimp > mean(varimp))
-
-cf <- causal_forest(X[,selected.idx], Ziektelast, Treatment,
-                   Y.hat = Y.hat, W.hat = W.hat,
-                   tune.parameters = TRUE)
+if(fullrun){
+  Y.forest <- regression_forest(X, Ziektelast)
+  Y.hat <- predict(Y.forest)$predictions
+  T.forest <- regression_forest(X, Treatment)
+  W.hat <- predict(T.forest)$predictions
+  
+  cf.raw <- causal_forest(X, Ziektelast, Treatment,
+                         Y.hat = Y.hat, W.hat = W.hat)
+  varimp <- variable_importance(cf.raw)
+  selected.idx <- which(varimp > mean(varimp))
+  
+  cf <- causal_forest(X[,selected.idx], Ziektelast, Treatment,
+                     Y.hat = Y.hat, W.hat = W.hat,
+                     tune.parameters = TRUE)
+  saveRDS(cf, "cf.rds")
+} else {cf <- readRDS("cf.rds")}
 
 
 
@@ -506,26 +515,30 @@ Effect_0 <- as.data.frame(ATE[1]) %>%
 
 
 ```{r}
-
+fullrun <- 0
 ## Goede model
 
 Treatment <- d1$Treatment
 Ziektelast = d1$Ziektelast
 X <- as.matrix(d1[,-(1:3)])
 
-Y.forest <- regression_forest(X, Ziektelast)
-Y.hat <- predict(Y.forest)$predictions
-T.forest <- regression_forest(X, Treatment)
-W.hat <- predict(T.forest)$predictions
-
-cf.raw_1 <- causal_forest(X, Ziektelast, Treatment,
-                       Y.hat = Y.hat, W.hat = W.hat)
-varimp_1 = variable_importance(cf.raw_1)
-selected.idx_1 = which(varimp_1 > mean(varimp_1))
-
-cf_1 = causal_forest(X[,selected.idx_1], Ziektelast, Treatment,
-                   Y.hat = Y.hat, W.hat = W.hat,
-                   tune.parameters = TRUE)
+if(fullrun){
+  Y.forest <- regression_forest(X, Ziektelast)
+  Y.hat <- predict(Y.forest)$predictions
+  T.forest <- regression_forest(X, Treatment)
+  W.hat <- predict(T.forest)$predictions
+  
+  cf.raw_1 <- causal_forest(X, Ziektelast, Treatment,
+                         Y.hat = Y.hat, W.hat = W.hat)
+  varimp_1 = variable_importance(cf.raw_1)
+  selected.idx_1 = which(varimp_1 > mean(varimp_1))
+  
+  cf_1 = causal_forest(X[,selected.idx_1], Ziektelast, Treatment,
+                     Y.hat = Y.hat, W.hat = W.hat,
+                     tune.parameters = TRUE)
+  saveRDS(cf_1, "cf_1.rds")
+} else{ cf_1 <- readRDS("cf_1.rds")
+}
 
 ATE_1 <- average_treatment_effect(cf_1)
 
