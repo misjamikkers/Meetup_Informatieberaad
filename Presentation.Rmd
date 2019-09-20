@@ -582,5 +582,10 @@ ggplot(data = d4, aes(x = Model, y = Effect)) +
 - Wanneer machine learning wordt gebruikt is de verleiding groot om alle variabelen in het model te gebruiken
 - We hebben laten zien dat dit kan leiden tot misleidende conclusies
 
+# Blog en code
+
+https://misjamikkers.github.io/post/causaliteit-en-machine-learning/
+
+https://github.com/misjamikkers/Meetup_Informatieberaad
 
 
