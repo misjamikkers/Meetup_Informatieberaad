@@ -723,6 +723,8 @@ Als je echt een studieboek wil met sommetjes kun je het beste het boek ["Causal 
 
 Dit blog is geschreven naar aanleiding van een uitnodiging om een workshop te organiseren voor de 7de Meet Up van het Informatieberaad Zorg op 23 september 2019. Het publiek van deze Meet Ups is zeer divers: patiënten, zorgprofessionals, beleidsmakers én leveranciers en inkopers van technische oplossingen voor de zorg zijn bij deze Meet Ups aanwezig.
 
-[Gertjan Verhoeven](https://gsverhoeven.github.io/#about) en ik hebben de presentatie die we tijdens de Meet Up hebben gegeven omgezet naar dit blog.
+[Gertjan Verhoeven](https://gsverhoeven.github.io/#about) en ik hebben de presentatie die we tijdens de Meet Up hebben gegeven omgezet naar dit blog. 
+
+De code van het blog en de presentatie zijn [hier te vinden](https://github.com/misjamikkers/Meetup_Informatieberaad)
 
 
