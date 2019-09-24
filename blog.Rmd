@@ -355,7 +355,7 @@ Op basis van deze DAG kunnen we data genereren en deze data in een grafiek weerg
 
 Ook in dit geval hebben we data op basis van deze DAG gesimuleerd en willen we laten zien wat er gebeurt wanneer de mediator (in dit geval de variabele $Teamsterkte$) wel of niet wordt opgenomen in de analyse.
 
-Wanneer we de variable $Teamsterkte$ niet opnemen in de analyse, dan zien we een vrij sterke correlatie tussen $Teamsterkte$ en het behaalde aantal $Punten$.
+Wanneer we de variable $Teamsterkte$ niet opnemen in de analyse, dan zien we een vrij sterke correlatie tussen $Budgetten$ en het behaalde aantal $Punten$.
 
 ```{r}
 set.seed(123)
