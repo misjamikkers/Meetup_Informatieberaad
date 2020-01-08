@@ -1,9 +1,9 @@
 ---
-title: "The effect of Tilburg gold on your health"
-subtitle: "Presentation Zorginstituut: Combining causal inference and machine learning in practice"
+title: "Causaliteit en Machine learning"
+subtitle: "Presentatie voor het Zorginstituut"
 author: "Misja Mikkers & Gertjan Verhoeven"
-institute: "Dutch Healthcare Authority (NZa) & Tilburg University"
-date: "January 09, 2020"
+institute: "Nederlandse Zorgautoriteit (NZa) & Tilburg University"
+date: "9 januari 2020"
 output:
    beamer_presentation:
     theme: "Goettingen"
@@ -32,20 +32,20 @@ library(grf)
 
 ```
 
-# Introduction
+# Inleiding
 
 
-## Introduction
+## Inleiding
 
 ![](DAGbeach.JPG)\
 
 
 
 
-## Example of a dataset dataset
+## Voorbeeld van een dataset
 
 ```{r}
-X_1 <- c("Male", "Female", "Female", "...")
+X_1 <- c("Man", "Vrouw", "Vrouw", "...")
 
 PO <- as.data.frame(X_1) %>%
   mutate(X_2 =  c("9", "60", "7", "...")) %>%
@@ -63,10 +63,10 @@ kable(PO)
 
 
 
-# Causality
+# Causaliteit
 
 
-## Prediction versus understanding
+## Voorspellen versus begrijpen
 
 
 ```{r fig.width= 6, fig.height = 4}
@@ -90,9 +90,9 @@ conf <- as.data.frame(IQ_groep) %>%
 ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
   geom_point() +
   geom_smooth(method = "lm") + 
-  xlab("Number of books possessed by parents") +
-  ylab("Test scores of their children") +
-  theme_bw()
+  xlab("Aantal boeken dat ouders bezit") +
+  ylab("Cito scores van hun kinderen") +
+  theme_minimal()
 
 
 ```
@@ -110,10 +110,7 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
 ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  xlab("Number of books possessed by parents") +
-  ylab("Test scores of their children") +
-  labs(color = "IQ Group\n parents") +
-  theme_bw()
+  theme_minimal()
 
 ```
 
@@ -125,7 +122,7 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 
 
-## DAG building blocks
+## Basisvormen DAGs
 
 
 
@@ -177,11 +174,11 @@ ggplot(data = DAG, aes(x = X, y = Y)) +
 
 ```{r}
 citodag <- dagitty('dag {
-IQ_parents [pos = "1,0"]
-Number_of_books [pos = "0,1"]
-Test_score_children [pos = "2,1"]
+IQ_ouders [pos = "1,0"]
+Aantal_boeken [pos = "0,1"]
+Cito_score [pos = "2,1"]
 
-Number_of_books <- IQ_parents -> Test_score_children
+Aantal_boeken <- IQ_ouders -> Cito_score
 
 }')
 
@@ -199,10 +196,10 @@ plot(citodag)
 ```{r}
 NBAdag <- dagitty('dag {
 NBA [pos = "1,0"]
-Speed [pos = "0,1"]
-Height [pos = "2,1"]
+Snelheid [pos = "0,1"]
+Lengte [pos = "2,1"]
 
-Height -> NBA <- Speed
+Lengte -> NBA <- Snelheid
 
 }')
 
@@ -212,7 +209,7 @@ plot(NBAdag)
 
 ```
 
-## Does height causes speed?
+## Veroorzaakt Lengte Snelheid?
 
 ```{r}
 
@@ -228,14 +225,14 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
   geom_point() +
   geom_smooth(method = "lm", aes(group = 1)) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
-  xlab("Height in meters") +
-  ylab("Speed in km per hour") +
-  theme_bw()
+  xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
+  theme_minimal()
 
 ```
 
 
-## Does height causes speed?
+## Veroorzaakt Lengte Snelheid?
 
 
 ```{r}
@@ -245,9 +242,9 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
   geom_smooth(method = "lm", aes(fill = NBA) , alpha = 0.1) +
   scale_color_manual(values = c("#17408B", "#C9082A")) +
   scale_fill_manual(values = c("#17408B", "#C9082A")) +
-  xlab("Height in meters") +
-  ylab("Speed in km per hour") +
-  theme_bw()
+   xlab("Lengte in meters") +
+  ylab("Snelheid in km per uur") +
+  theme_minimal()
 
 ```
 
@@ -257,11 +254,11 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
 
 ```{r}
 Voetbaldag <- dagitty('dag {
-Team_strength [pos = "1,0"]
+Teamsterkte [pos = "1,0"]
 Budget [pos = "0,1"]
-Points [pos = "2,1"]
+Punten [pos = "2,1"]
 
-Budget -> Team_strength -> Points
+Budget -> Teamsterkte -> Punten
 
 }')
 
@@ -272,7 +269,7 @@ plot(Voetbaldag)
 
 ```
 
-## Budgets and points
+## Budgetten en punten
 
 ```{r}
 set.seed(123)
@@ -289,28 +286,23 @@ Vb <- as.data.frame(Budgetten) %>%
 ggplot(data = Vb, aes(x = Budgetten, y = Punten)) +
   geom_point() + 
   geom_smooth(method = "lm") +
-  xlab("Budgets") +
-  ylab("Points") +
-  theme_bw()
+  theme_minimal()
 
 ```
 
 
-## Budgets and Points
+## Budgetten en punten
 
 ```{r}
 ggplot(data = Vb, aes(x = Budgetten, y = Punten, color = Teamsterkte_groep)) +
   geom_point() + 
   geom_smooth(method = "lm") +
-  xlab("Budgets") +
-  ylab("Points") +
-  labs(color = "Team strength\nGroup") +
-  theme_bw()
+  theme_minimal()
 
 ```
 
 
-## Example of a more complex DAG
+## Voorbeeld van een meer complexe DAG
 
 
 
@@ -375,23 +367,23 @@ plot(thesismodel10)
 
 ```
 
-# Machine learning and causality
+# Machine learning en causaliteit
 
 
-## Machine learning and causality
+## Machine learning en causaliteit
 
 
 ```{r}
 
 
 g <- dagitty('dag {
-    Health_care_cost [pos="1,0"]
+    Zorgkosten [pos="1,0"]
     Treatment [pos="0,1"]
-    Proportional_shortfall [pos="2,1"]
+    Ziektelast [pos="2,1"]
     V_i [pos="3,1"]
    
     
-V_i -> Proportional_shortfall -> Health_care_cost <- Treatment    
+V_i -> Ziektelast -> Zorgkosten <- Treatment    
 
     
 
@@ -401,26 +393,24 @@ plot(g)
 ```
 
 
-## Approach
+## Aanpak
 
-The variable $Proportional\_Shortfall$ is based on:
+De variabele $Ziektelast$ is bepaald op basis van de volgende formule:
 
 \begin{multline*}
-\begin{split}
-Proportional\_Shortfall = abs(scale(V1^3 + 2 * V2 + \\ 3 *  V3^2 + 4 * V4 + 
-5 * V5 \\ + 6 * V6*V7)) + \epsilon
-\end{split}
+Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + \\
+5 * V5 + 6 * V6*V7)) + \epsilon
 \end{multline*}
 
 \footnotesize{
 
-1. Fit Random Forest model on the data
-2. Determine the average treatment effect with generalized random forests (grf)
+1. Fit een Random Forest model op de data
+2. Bepaal het gemiddelde treatment effect met behulp van generalized random forests (grf)
 
-We will fit 2 models for each of these steps:
+We doorlopen deze procedure 2 keer:
 
-a.  An analysis with all variables ("the wrong model")
-b.  An analysis with all variables, except the collider $Health\_care\_cost$ ("the right model")
+a.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen ("het verkeerde model")
+b.  Een analyse waarbij we de ziektelast voorspellen met alle variabelen minus de collider $Zorgkosten$ ("het goede model")
 }
 
 
@@ -440,14 +430,14 @@ X <- matrix(sample.int(1000, size = 1000 * 8 , replace = TRUE),
 
 d1 <- as.data.frame(X) %>%
   mutate(Treatment = sample(c(0, 1), 1000, replace = T)) %>%
-  mutate(Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + 5 * V5 + 6 * V6*V7) + rnorm(n = 1000, mean = 0, sd = 1))) %>%
-  mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 1)) %>%
+  mutate(Ziektelast = abs(scale(V1^3 + 2 * V2 + 3 * V3^2 + 4 * V4 + 5 * V5 + 6 * V6*V7) + rnorm(n = 1000, mean = 0, sd = 0.1))) %>%
+  mutate(Zorgkosten = 3 * Treatment + 5 * Ziektelast  + rnorm(n = 1000, mean = 0, sd = 0.1)) %>%
   select(Ziektelast, Treatment, Zorgkosten, everything())
 
 
 
 
-stargazer(d1, type= "latex", header = FALSE, font.size = "tiny", covariate.labels = c("Proportional Shortfall", "Treatment", "Health care cost"), omit.summary.stat = c("p25", "p75"))
+stargazer(d1, type= "latex",  header = FALSE, font.size = "tiny")
 
 ```
 
@@ -455,11 +445,11 @@ stargazer(d1, type= "latex", header = FALSE, font.size = "tiny", covariate.label
 
 
 
-## Predictions Random Forest
+## Voorspellingen Random Forest
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
 set.seed(123)
 tr_control <- trainControl(method = "repeatedcv",
                             number = 10,
@@ -485,25 +475,25 @@ if(fullrun){
 }
 
 dresamps <- as.data.frame(rf_fit_all$resample$Rsquared) %>%
-  rename(`Wrong model`= `rf_fit_all$resample$Rsquared`) %>%
-  mutate(`Right model` = rf_fit$resample$Rsquared) %>%
+  rename(`Model met zorgkosten`= `rf_fit_all$resample$Rsquared`) %>%
+  mutate(`Model zonder zorgkosten` = rf_fit$resample$Rsquared) %>%
   gather(Model, Rsquared)
 
 ggplot(data = dresamps, aes(x= reorder(Model, Rsquared), y = Rsquared*100)) + 
   geom_boxplot(width = 0.1) +
-  ylab("R squared (%)") + 
+  ylab("R kwadraat (%)") + 
   xlab(" ") +
-  #ylim(50, 100) +
-  theme_bw() + 
+  ylim(50, 100) +
+  theme_minimal() + 
   coord_flip()
 
 ```
 
-## Average treatment effect
+## Schatting van het treatment effect
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
 # We schatten het interventie-effect met grf (causal forest)
 
 ## Verkeerde model
@@ -538,13 +528,13 @@ Effect_0 <- as.data.frame(ATE[1]) %>%
   rename(Effect = `ATE[1]`) %>%
   mutate(Upper = Effect + 1.96 * ATE[2]) %>%
   mutate(Lower = Effect - 1.96 * ATE[2]) %>%
-  mutate(Model = as.factor("Wrong model"))
+  mutate(Model = as.factor("Model met zorgkosten"))
 
 ```
 
 
 ```{r}
-fullrun <- 0
+fullrun <- 1
 
 ## Goede model
 
@@ -578,7 +568,7 @@ Effect_1 <- as.data.frame(ATE_1[1]) %>%
   rename(Effect = `ATE_1[1]`) %>%
   mutate(Upper = Effect + 1.96 * ATE_1[2]) %>%
   mutate(Lower = Effect - 1.96 * ATE_1[2]) %>%
-  mutate(Model = as.factor("Right model"))
+  mutate(Model = as.factor("Model zonder zorgkosten"))
 
 
 
@@ -591,30 +581,30 @@ Effect_1 <- as.data.frame(ATE_1[1]) %>%
 d4 <- rbind(Effect_0, Effect_1)
 
 ggplot(data = d4, aes(x = Model, y = Effect)) +
-    geom_hline(yintercept = 0, col = "aliceblue", size = 2) +
+    geom_hline(yintercept = 0, col = "gray") +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.1) + 
   xlab("") +
-  ylab("Average Treatment Effect") +
+  ylab("Gemiddeld Interventie Effect") +
   ylim(-1,1) +
-  theme_bw() +
+  theme_minimal() +
   coord_flip()
 
 
 ```
 
 
-# Conclusion
+# Conclusie
 
-## Conclusion
+## Conclusie
 
-- Causal models are necessary for inference
-- It is tempting to use all variables in a machine learning model
-- However, this could lead to misleading conclusions
+- Het is essentieel om een causaal model te hebben
+- Wanneer machine learning wordt gebruikt is de verleiding groot om alle variabelen in het model te gebruiken
+- We hebben laten zien dat dit kan leiden tot misleidende conclusies
 
-# Blog and code
+# Blog en code
 
-## Blog and code (in Dutch)
+## Blog en code
 
 https://misjamikkers.github.io/post/causaliteit-en-machine-learning/
 
