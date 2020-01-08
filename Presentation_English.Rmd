@@ -42,7 +42,7 @@ library(grf)
 
 
 
-## Example of a dataset dataset
+## Causal inference as missing data
 
 ```{r}
 X_1 <- c("Male", "Female", "Female", "...")
@@ -101,7 +101,7 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito)) +
 
 
 
-## Voorspellen versus begrijpen
+## Prediction versus understanding
 
 
 ```{r}
@@ -125,7 +125,7 @@ ggplot(data = conf, aes(x = Aantal_boeken, y = Cito, color = IQ_groep)) +
 
 
 
-## DAG building blocks
+## Causal graph (DAG) building blocks
 
 
 
@@ -156,9 +156,9 @@ ggplot(data = DAG, aes(x = X, y = Y)) +
   annotate("text", x = 9, y = 0.8, label = "X") +
   annotate("text", x = 10, y = 3.2, label = "Z") +
   annotate("text", x = 11, y = 0.8, label = "Y") +
-  annotate("text", x = 2, y = 3.5, label = "Confounder") +
+  annotate("text", x = 2, y = 3.5, label = "Fork") +
   annotate("text", x = 6, y = 3.5, label = "Collider") +
-  annotate("text", x = 10, y = 3.5, label = "Mediator") +
+  annotate("text", x = 10, y = 3.5, label = "Chain") +
   ylim(0, 5) +
     theme_void()
 
@@ -168,10 +168,7 @@ ggplot(data = DAG, aes(x = X, y = Y)) +
 
 
 
-
-
-
-## Confounder
+## Fork
 
 
 
@@ -182,6 +179,29 @@ Number_of_books [pos = "0,1"]
 Test_score_children [pos = "2,1"]
 
 Number_of_books <- IQ_parents -> Test_score_children
+
+}')
+
+
+
+plot(citodag)
+
+```
+
+
+## Confounding / confounder
+
+
+
+```{r}
+citodag <- dagitty('dag {
+IQ_parents [pos = "1,0"]
+Number_of_books [pos = "0,1"]
+Test_score_children [pos = "2,1"]
+
+Number_of_books <- IQ_parents -> Test_score_children
+
+Number_of_books -> Test_score_children
 
 }')
 
@@ -212,7 +232,7 @@ plot(NBAdag)
 
 ```
 
-## Does height causes speed?
+## Does being tall makes you fast?
 
 ```{r}
 
@@ -235,7 +255,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid)) +
 ```
 
 
-## Does height causes speed?
+## Does being tall makes you fast?
 
 
 ```{r}
@@ -252,7 +272,7 @@ ggplot(data = NBA, aes(x = Lengte, y = Snelheid, color = NBA)) +
 ```
 
 
-## Mediator
+## Chain / Mediator
 
 
 ```{r}
@@ -388,7 +408,7 @@ g <- dagitty('dag {
     Health_care_cost [pos="1,0"]
     Treatment [pos="0,1"]
     Proportional_shortfall [pos="2,1"]
-    V_i [pos="3,1"]
+    V_i [pos="3,0"]
    
     
 V_i -> Proportional_shortfall -> Health_care_cost <- Treatment    
